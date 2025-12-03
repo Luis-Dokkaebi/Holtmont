@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holtmont Workspace</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    /* VARIABLES */
+    :root { --sidebar-w: 260px; --primary: #1e1e2d; --accent: #3699ff; --bg-body: #f3f6f9; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; }
+    
+    /* LAYOUT */
+    .app-wrapper { display: flex; height: 100vh; width: 100vw; }
+    .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; z-index: 100; transition: transform 0.3s; }
+    .brand { height: 70px; display: flex; align-items: center; padding: 0 25px; font-weight: 700; font-size: 1.3rem; color: white; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .menu { flex: 1; overflow-y: auto; padding: 20px 0; }
+    .nav-item { padding: 12px 25px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; font-weight: 500; color: #a2a3b7; }
+    .nav-item:hover { color: white; background: rgba(255,255,255,0.03); }
+    .nav-item.active { background: #1b1b29; color: var(--accent); border-right: 3px solid var(--accent); }
+    .nav-item i { width: 25px; margin-right: 10px; text-align: center; font-size: 1.1rem; }
+    .menu-header { padding: 20px 25px 10px; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; color: #5f6275; }
+
+    /* CONTENT */
+    .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); position: relative; }
+    .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
+    .view-area { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
+
+    /* FORMULARIO ESTILOS */
+    .form-container-pro, .list-container-pro .card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(76,87,125,0.02); padding: 40px; max-width: 1000px; margin: 0 auto; }
+    .list-container-pro .card { padding: 0; } /* Ajuste para la tarjeta de lista */
+    .form-header { margin-bottom: 30px; border-bottom: 1px solid #eff2f5; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .form-label { font-weight: 600; color: #3f4254; margin-bottom: 8px; font-size: 0.9rem; }
+    .form-control, .form-select { background-color: #f5f8fa; border: 1px solid #f5f8fa; color: #5e6278; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+    .form-control:focus { background-color: #eef3f7; border-color: #eef3f7; box-shadow: none; color: #3f4254; }
+    .btn-submit { background-color: var(--accent); color: white; font-weight: 600; padding: 12px 30px; border-radius: 8px; border: none; transition: 0.3s; }
+    .btn-submit:hover { background-color: #187de4; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(54,153,255,0.3); }
+
+    /* CHIPS & LISTA */
+    .chip-container { border: 1px solid #f5f8fa; background-color: #f5f8fa; border-radius: 8px; padding: 5px 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 48px; position: relative; }
+    .chip-container:focus-within { background-color: #eef3f7; border-color: #eef3f7; }
+    .user-chip { background-color: white; border: 1px solid #e1e3ea; border-radius: 50px; padding: 4px 10px 4px 4px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; color: #3f4254; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .user-chip .avatar { width: 24px; height: 24px; background-color: var(--accent); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 0.7rem; }
+    .user-chip .btn-remove { color: #b5b5c3; cursor: pointer; font-size: 1rem; line-height: 1; margin-left: 5px; }
+    .user-chip .btn-remove:hover { color: #f1416c; }
+    .chip-input { border: none; outline: none; background: transparent; flex: 1; min-width: 150px; padding: 5px; font-size: 0.9rem; color: #5e6278; }
+    .suggestions-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-top: 5px; max-height: 200px; overflow-y: auto; z-index: 1000; list-style: none; padding: 0; border: 1px solid #eff2f5; }
+    .suggestion-item { padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; border-bottom: 1px solid #f9f9f9; }
+    .suggestion-item:hover { background-color: #f1faff; color: var(--accent); }
+    .suggestion-item .initials { width: 30px; height: 30px; background: #eef3f7; color: #7e8299; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 0.8rem; }
+
+    /* PRIORIDAD (PÍLDORAS) */
+    .priority-group { display: flex; background: #f5f8fa; padding: 5px; border-radius: 50px; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+    /* NUEVOS ESTILOS DE PRIORIDAD */
+    .priority-option.active.urgente { background: #f1416c; color: white; }
+    .priority-option.active.media { background: #ffc700; color: #3f4254; }
+    .priority-option.active.baja { background: #50cd89; color: white; }
+    /* ESTILOS DE RIESGOS */
+    .priority-option.active.bajo { background: #50cd89; color: white; }
+    .priority-option.active.medio { background: #ffc700; color: #3f4254; }
+    .priority-option.active.alto { background: #f1416c; color: white; }
+    .priority-option.active.catastrofico { background: #7239ea; color: white; }
+
+    /* DROP ZONE */
+    .drop-zone { border: 2px dashed #d1d5db; border-radius: 8px; background: #f9fafb; padding: 25px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: #f0f7ff; }
+    .drop-zone i { font-size: 2rem; color: #9ca3af; margin-bottom: 10px; }
+    .drop-zone p { margin: 0; color: #6b7280; font-weight: 500; font-size: 0.9rem; }
+    .file-input-hidden { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer; }
+    .uploading-state { color: var(--accent); font-weight: 600; }
+    .upload-success { color: #10b981; font-weight: 600; }
+
+    /* UTILS */
+    .dept-card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(0,0,0,0.03); cursor: pointer; transition: 0.3s; border-top: 4px solid transparent; height: 100%; }
+    .dept-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .staff-card { background: white; border-radius: 10px; padding: 20px; border: 1px solid #f0f0f0; text-align: center; transition: 0.2s; }
+    .staff-card:hover { border-color: var(--accent); box-shadow: 0 5px 15px rgba(54,153,255,0.1); }
+    .iframe-container { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; display: flex; flex-direction: column; }
+    .iframe-toolbar { height: 50px; background: #212529; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+    iframe { flex: 1; width: 100%; border: none; }
+    .tab-bar { background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 10px 10px 0; display: flex; gap: 5px; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 15px; border: none; background: transparent; cursor: pointer; font-weight: 500; color: #6c757d; border-radius: 5px 5px 0 0; }
+    .tab-btn:hover { background: #e9ecef; }
+    .tab-btn.active { background: white; color: var(--primary); font-weight: 700; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+    .loader-overlay { position: fixed; inset: 0; background: white; z-index: 999; display: flex; justify-content: center; align-items: center; }
+    @media (max-width: 768px) { .sidebar { position: fixed; height: 100%; transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+<div id="app" v-cloak>
+  <div v-if="loading" class="loader-overlay">
+    <div class="text-center"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div><p class="mt-3 fw-bold text-muted">Cargando...</p></div>
+  </div>
+
+  <div class="app-wrapper">
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
+      <div class="brand"><i class="fas fa-layer-group me-2 text-primary"></i> HOLTMONT</div>
+      <div class="menu">
+        <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome"><i class="fas fa-home"></i> Inicio</div>
+        <div class="menu-header">Módulos</div>
+        <div class="nav-item" v-for="mod in config.specialModules" :class="{ active: currentModuleId === mod.id }" @click="openModule(mod)">
+          <i class="fas" :class="mod.icon" :style="{ color: mod.color }"></i> {{ mod.label }}
+        </div>
+        <div class="menu-header">Departamentos</div>
+        <div class="nav-item" v-for="(dept, key) in config.departments" :class="{ active: currentView === 'DEPT' && currentDept === key }" @click="selectDept(key)">
+          <i class="fas" :class="dept.icon"></i> {{ dept.label }}
+        </div>
+      </div>
+    </aside>
+
+    <main class="content-wrapper">
+      <div class="top-bar">
+        <button class="btn btn-sm d-md-none" @click="sidebarOpen = !sidebarOpen"><i class="fas fa-bars"></i></button>
+        <h5 class="m-0 fw-bold text-dark">{{ pageTitle }}</h5>
+        <div><span class="badge bg-light text-dark border px-3 py-2"><i class="fas fa-user me-2"></i> Usuario</span></div>
+      </div>
+
+      <div class="view-area" v-if="!['IFRAME', 'MODULE_TABS'].includes(currentView)">
+        
+        <div v-if="currentView === 'DASHBOARD'" class="row g-4">
+          <div class="col-md-4 col-xl-3" v-for="mod in config.specialModules">
+            <div class="dept-card" @click="openModule(mod)" :style="{ borderTopColor: mod.color }">
+              <i class="fas fa-2x mb-3" :class="mod.icon" :style="{ color: mod.color }"></i>
+              <h5 class="fw-bold">{{ mod.label }}</h5>
+              <small class="text-muted">Acceso directo</small>
+            </div>
+          </div>
+          <div class="col-md-4 col-xl-3" v-for="(dept, key) in config.departments">
+            <div class="dept-card" @click="selectDept(key)" :style="{ borderTopColor: dept.color }">
+              <i class="fas fa-2x mb-3" :class="dept.icon" :style="{ color: dept.color }"></i>
+              <h5 class="fw-bold">{{ dept.label }}</h5>
+              <small class="text-muted">Ver personal</small>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="currentView === 'PPC_FORM'">
+          <div class="d-flex justify-content-end gap-3 mb-4">
+            <a href="https://docs.google.com/spreadsheets/d/1iwlanqnhHGjo9MdZtbsymXu1zCsdjRONdxqfYV6icck/edit" target="_blank" class="btn btn-outline-success px-4"><i class="fas fa-table me-2"></i> Ver Hoja</a>
+            <button v-if="ppcViewMode === 'FORM'" class="btn btn-outline-primary px-4" @click="ppcViewMode = 'LIST'; fetchPPCData();"><i class="fas fa-list me-2"></i> Ver Panel</button>
+            <button v-else class="btn btn-outline-primary px-4" @click="ppcViewMode = 'FORM'"><i class="fas fa-edit me-2"></i> Registrar Actividad</button>
+          </div>
+
+          <div v-if="ppcViewMode === 'FORM'" class="form-container-pro">
+            <div class="form-header">
+              <h3><i class="fas fa-edit text-primary me-2"></i> Registrar Actividad</h3>
+              <button class="btn btn-light btn-sm" @click="goHome"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="row g-4">
+              <div class="col-md-4">
+                <label class="form-label">Especialidad</label>
+                <select v-model="ppcData.especialidad" class="form-select">
+                  <option value="" disabled>Seleccione...</option>
+                  <option>CONSTRUCCION</option><option>HVAC</option><option>ELECTROMECANICA</option>
+                  <option>EHS</option><option>COMPRAS</option><option>DISEÑO</option><option>ADMINISTRACION</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Clasificación <i class="fas fa-info-circle text-muted" title="A=3 días, AA=15 días, AAA=30 días"></i></label>
+                <select v-model="ppcData.clasificacion" class="form-select">
+                  <option value="" disabled>Seleccione...</option>
+                  <option value="A">A (3 Días)</option>
+                  <option value="AA">AA (15 Días)</option>
+                  <option value="AAA">AAA (30 Días)</option>
+                </select>
+              </div>
+
+              <div class="col-md-4 position-relative">
+                <label class="form-label">Responsable(s)</label>
+                <div class="chip-container" @click="$refs.chipInput.focus()">
+                  <div class="user-chip" v-for="(user, index) in selectedResponsables" :key="index">
+                    <div class="avatar">{{ user.charAt(0) }}</div>{{ user }}<span class="btn-remove" @click.stop="removeResponsable(index)">&times;</span>
+                  </div>
+                  <input ref="chipInput" v-model="staffSearch" @focus="showSuggestions = true" @blur="setTimeout(() => showSuggestions = false, 200)" class="chip-input" placeholder="Buscar..." @keydown.enter.prevent="addFirstSuggestion">
+                </div>
+                <ul class="suggestions-list" v-if="showSuggestions && filteredStaffList.length > 0">
+                  <li v-for="person in filteredStaffList" class="suggestion-item" @click="addResponsable(person.name)">
+                    <div class="initials">{{ person.name.charAt(0) }}</div>
+                    <div><div class="fw-bold">{{ person.name }}</div><small class="text-muted">{{ person.dept }}</small></div>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Descripción de la Actividad</label>
+                <textarea v-model="ppcData.concepto" class="form-control" rows="2" placeholder="Detalle de la tarea..."></textarea>
+              </div>
+              
+              <div class="col-12">
+                <label class="form-label">Riesgos</label>
+                <div class="priority-group">
+                    <div class="priority-option" :class="{ 'active bajo': ppcData.riesgos === 'Bajo' }" @click="ppcData.riesgos = 'Bajo'">Bajo</div>
+                    <div class="priority-option" :class="{ 'active medio': ppcData.riesgos === 'Medio' }" @click="ppcData.riesgos = 'Medio'">Medio</div>
+                    <div class="priority-option" :class="{ 'active alto': ppcData.riesgos === 'Alto' }" @click="ppcData.riesgos = 'Alto'">Alto</div>
+                    <div class="priority-option" :class="{ 'active catastrofico': ppcData.riesgos === 'Catastrófico' }" @click="ppcData.riesgos = 'Catastrófico'">Catastrófico</div>
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Hora Finalización</label>
+                <input type="time" v-model="ppcData.horaFin" class="form-control">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Reloj (Hrs)</label>
+                <input type="text" v-model="ppcData.horas" class="form-control" placeholder="Ej: 24">
+              </div>
+              
+              <div class="col-md-7">
+                <label class="form-label">Prioridad</label>
+                <div class="priority-group">
+                  <div class="priority-option" :class="{ 'active urgente': ppcData.prioridad === 'Urgente' }" @click="ppcData.prioridad = 'Urgente'">Urgente</div>
+                  <div class="priority-option" :class="{ 'active media': ppcData.prioridad === 'Media' }" @click="ppcData.prioridad = 'Media'">Media</div>
+                  <div class="priority-option" :class="{ 'active baja': ppcData.prioridad === 'Baja' }" @click="ppcData.prioridad = 'Baja'">Baja</div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Adjuntar Archivo</label>
+                <div class="drop-zone" 
+                      @dragover.prevent="dragOver = true" @dragleave.prevent="dragOver = false" @drop.prevent="handleDrop"
+                      :class="{ 'dragover': dragOver, 'upload-success': uploadSuccess }">
+                  <div v-if="isUploadingFile" class="uploading-state"><div class="spinner-border spinner-border-sm text-primary"></div> Subiendo...</div>
+                  <div v-else-if="uploadSuccess" class="upload-success"><i class="fas fa-check-circle"></i> Listo</div>
+                  <div v-else><i class="fas fa-cloud-upload-alt"></i> <p>Arrastra aquí</p></div>
+                  <input type="file" class="file-input-hidden" @change="handleFileSelect">
+                </div>
+                <input type="hidden" v-model="ppcData.archivoUrl">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Comentarios</label>
+                <textarea v-model="ppcData.comentarios" class="form-control" rows="3" placeholder="Notas adicionales..."></textarea>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-5 pt-3 border-top">
+              <button class="btn btn-light me-2" @click="goHome">Cancelar</button>
+              <button class="btn btn-submit" @click="submitPPC" :disabled="isSubmitting">
+                <span v-if="isSubmitting"><i class="fas fa-spinner fa-spin me-2"></i> Guardando...</span>
+                <span v-else><i class="fas fa-save me-2"></i> Guardar Registro</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="list-container-pro">
+            <div class="card shadow-sm">
+              <div class="card-header bg-white fw-bold"><i class="fas fa-clipboard-list me-2"></i> Panel de Actividades PPC ({{ fetchedPPCData.length }})</div>
+              <div class="card-body p-0">
+                <div v-if="isFetchingPPC" class="text-center p-5"><div class="spinner-border text-primary" style="width: 2rem; height: 2rem;"></div><p class="mt-3 text-muted">Cargando actividades...</p></div>
+                <div v-else-if="fetchedPPCData.length === 0" class="alert alert-info m-4">No hay actividades registradas.</div>
+                <div v-else class="table-responsive" style="max-height: 70vh;">
+                  <table class="table table-striped table-sm mb-0">
+                    <thead class="bg-light sticky-top">
+                      <tr>
+                        <th>ID</th><th>Esp.</th><th>Concepto</th><th>Responsable(s)</th><th>Fecha Alta</th><th>Horas</th><th>Clasif.</th><th>Prioridad</th><th>Cumpl.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in fetchedPPCData" :key="item.id">
+                        <td><span class="badge bg-primary">{{ item.id }}</span></td>
+                        <td>{{ item.especialidad }}</td>
+                        <td class="text-truncate" style="max-width: 250px;" :title="item.concepto">{{ item.concepto }}</td>
+                        <td>{{ item.responsable }}</td>
+                        <td>{{ item.fechaAlta }}</td>
+                        <td>{{ item.horas }}</td>
+                        <td><span class="badge bg-secondary">{{ item.clasificacion }}</span></td>
+                        <td>
+                            <span class="badge" 
+                                :class="{
+                                    'bg-danger': item.prioridad === 'Urgente' || item.prioridad === 'Catastrófica', 
+                                    'bg-warning text-dark': item.prioridad === 'Media', 
+                                    'bg-success': item.prioridad === 'Baja'
+                                }">{{ item.prioridad }}</span>
+                        </td>
+                        <td><i class="fas" :class="{'fa-check-circle text-success': item.cumplimiento === 'SI', 'fa-times-circle text-danger': item.cumplimiento === 'NO'}"></i></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="currentView === 'DEPT'">
+          <div class="d-flex justify-content-between mb-4">
+            <button class="btn btn-light border" @click="goHome"><i class="fas fa-arrow-left"></i> Volver</button>
+            <input type="text" v-model="searchQuery" class="form-control w-auto" placeholder="Buscar personal...">
+          </div>
+          <div class="row g-3">
+            <div class="col-md-4 col-lg-3" v-for="p in filteredStaff">
+              <div class="staff-card h-100">
+                <h6 class="fw-bold text-dark">{{ p.name }}</h6>
+                <button class="btn btn-sm w-100 mt-3 text-white" :style="{ backgroundColor: currentDeptData.color }" @click="openStaffTracker(p)">
+                  <i class="fas fa-eye me-1"></i> Ver Tracker
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="currentView === 'STAFF_TRACKER'">
+          <div class="d-flex justify-content-between mb-4 align-items-center">
+            <button class="btn btn-light border" @click="goBackToDept"><i class="fas fa-arrow-left"></i> Volver a {{ currentDeptData.label }}</button>
+            <h4 class="fw-bold text-dark m-0">Tracker de {{ staffTracker.name }}</h4>
+          </div>
+
+          <div class="d-flex justify-content-end gap-3 mb-4">
+            <button class="btn btn-primary px-4" @click="openModule({id: 'PPC_MASTER', label: 'Panel PPC', type: 'ppc_native'})">
+                <i class="fas fa-plus me-2"></i> Realizar Alta
+            </button>
+            <button class="btn btn-success px-4" :disabled="staffTracker.isLoading" @click="reloadStaffTracker">
+                <span v-if="staffTracker.isLoading"><i class="fas fa-spinner fa-spin me-2"></i> Actualizando...</span>
+                <span v-else><i class="fas fa-sync-alt me-2"></i> Actualizar</span>
+            </button>
+          </div>
+
+          <div class="list-container-pro p-0">
+            <div class="card shadow-sm">
+              <div class="card-body p-0">
+                <div v-if="staffTracker.isLoading" class="text-center p-5">
+                  <div class="spinner-border text-primary" style="width: 2rem; height: 2rem;"></div>
+                  <p class="mt-3 text-muted">Cargando tareas de {{ staffTracker.name }}...</p>
+                </div>
+                <div v-else-if="staffTracker.data.length === 0" class="alert alert-info m-4">
+                  {{ staffTracker.name }} no tiene tareas asignadas en el PPC.
+                </div>
+                <div v-else class="table-responsive" style="max-height: 75vh;">
+                  <table class="table table-striped table-sm mb-0 align-middle">
+                    <thead class="bg-light sticky-top">
+                      <tr>
+                        <th>ID</th>
+                        <th style="width: 7%;">Prioridad</th>
+                        <th style="width: 7%;">Clasif.</th>
+                        <th>Concepto (Esp.)</th>
+                        <th>Hrs/Fin</th>
+                        <th>Riesgos</th>
+                        <th style="width: 15%; background-color: #e9ecef;">Comentarios Previos (Historial)</th>
+                        <th style="width: 15%;">Comentarios Actuales</th>
+                        <th>Archivos</th>
+                        <th>Cumpl.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in staffTracker.data" :key="item.id">
+                        <td><span class="badge bg-primary">{{ item.id }}</span></td>
+                        <td>
+                            <span class="badge" 
+                                  :class="{
+                                      'bg-danger': item.prioridad === 'Urgente' || item.prioridad === 'Catastrófica', 
+                                      'bg-warning text-dark': item.prioridad === 'Media', 
+                                      'bg-success': item.prioridad === 'Baja'
+                                  }">{{ item.prioridad }}</span>
+                        </td>
+                        <td><span class="badge bg-secondary">{{ item.clasificacion }}</span></td>
+                        <td class="text-wrap" style="max-width: 250px; font-size: 0.9rem;">
+                            <div class="fw-bold">{{ item.concepto }}</div>
+                            <small class="text-muted">({{ item.especialidad }})</small>
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ item.horas || '-' }} hrs</div>
+                            <small class="text-muted" v-if="item.fechaAlta && item.fechaAlta.toString().trim() !== ''">Alta: {{ item.fechaAlta }}</small>
+                            <small class="text-muted" v-else>Fin: {{ item.horaFin || 'N/A' }}</small>
+                        </td>
+                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem;">{{ item.riesgos || '-' }}</td>
+                        
+                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem; background-color: #f8f9fa;">
+                            <span v-if="item.comentariosPrevios && item.comentariosPrevios.toString().trim() !== ''">{{ item.comentariosPrevios }}</span>
+                            <span v-else class="text-muted">N/A</span>
+                        </td>
+
+                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem;">
+                            <span v-if="item.comentarios && item.comentarios.toString().trim() !== ''">{{ item.comentarios }}</span>
+                            <span v-else class="text-muted">Sin notas</span>
+                        </td>
+
+                        <td>
+                            <a v-if="item.archivoUrl && item.archivoUrl.toString().trim() !== ''" :href="item.archivoUrl" target="_blank" class="btn btn-sm btn-outline-info p-1">
+                                <i class="fas fa-file-alt"></i>
+                            </a>
+                            <span v-else>-</span>
+                        </td>
+                        <td><i class="fas fa-lg" :class="{'fa-check-circle text-success': item.cumplimiento === 'SI', 'fa-times-circle text-danger': item.cumplimiento === 'NO'}"></i></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div v-if="['IFRAME', 'MODULE_TABS'].includes(currentView)" class="iframe-container">
+        <div class="iframe-toolbar">
+          <span class="fw-bold"><i class="fas fa-desktop me-2"></i> {{ iframeTitle }}</span>
+          <button class="btn btn-sm btn-danger" @click="closeIframe"><i class="fas fa-times"></i> Cerrar</button>
+        </div>
+        <div v-if="currentView === 'MODULE_TABS'" class="tab-bar">
+          <button v-for="tab in activeModuleTabs" class="tab-btn" :class="{ active: currentIframeUrl === tab.url }" @click="currentIframeUrl = tab.url">
+            {{ tab.name }}
+          </button>
+        </div>
+        <iframe :src="currentIframeUrl"></iframe>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  const { createApp, ref, computed, onMounted } = Vue;
+
+  createApp({
+    setup() {
+      // Estado Global
+      const loading = ref(true);
+      const isSubmitting = ref(false);
+      const sidebarOpen = ref(false);
+      const currentView = ref('DASHBOARD');
+      const currentDept = ref('');
+      const currentModuleId = ref('');
+      const currentIframeUrl = ref('');
+      const iframeTitle = ref('');
+      const searchQuery = ref('');
+      const activeModuleTabs = ref([]);
+      const config = ref({ departments: {}, staff: [], specialModules: [] });
+      
+      // ESTADO PARA LA NUEVA VISTA DE TRACKER DE EMPLEADO
+      const staffTracker = ref({ 
+          name: '', 
+          data: [], 
+          isLoading: false, 
+          previousView: 'DEPT' 
+      }); 
+
+      // ESTADO PPC ACTUALIZADO
+      const ppcViewMode = ref('FORM'); // 'FORM' o 'LIST'
+      const isFetchingPPC = ref(false); // Estado de carga del listado general
+      const fetchedPPCData = ref([]); // Array para los datos cargados del panel
+      const ppcData = ref({ 
+        especialidad: '', concepto: '', horas: '', horaFin: '', 
+        clasificacion: '', riesgos: '', prioridad: 'Media', 
+        cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' 
+      });
+      const selectedResponsables = ref([]);
+      const staffSearch = ref('');
+      const showSuggestions = ref(false);
+      const dragOver = ref(false);
+      const isUploadingFile = ref(false);
+      const uploadSuccess = ref(false);
+
+      onMounted(() => {
+        google.script.run.withSuccessHandler(data => { config.value = data; loading.value = false; })
+          .withFailureHandler(err => Swal.fire('Error', 'Error al cargar configuración: ' + err, 'error')).getSystemConfig();
+      });
+
+      // Navegación
+      const goHome = () => { currentView.value = 'DASHBOARD'; sidebarOpen.value = false; currentModuleId.value = ''; };
+      const selectDept = (key) => { currentDept.value = key; currentView.value = 'DEPT'; searchQuery.value = ''; sidebarOpen.value = false; currentModuleId.value = ''; };
+
+      const openModule = (mod) => {
+        iframeTitle.value = mod.label; currentModuleId.value = mod.id;
+        if (mod.type === 'ppc_native') { currentView.value = 'PPC_FORM'; ppcViewMode.value = 'FORM';} // Resetear a formulario al abrir
+        else if (mod.type === 'tabs') { activeModuleTabs.value = mod.tabs; currentIframeUrl.value = mod.tabs[0].url; currentView.value = 'MODULE_TABS'; }
+        else { currentIframeUrl.value = mod.url; currentView.value = 'IFRAME'; }
+        sidebarOpen.value = false;
+      };
+
+      // FUNCIÓN CLAVE: Cargar/Recargar Tracker del Empleado
+      const loadStaffTrackerData = (personName) => {
+          staffTracker.value.isLoading = true;
+          staffTracker.value.data = [];
+
+          google.script.run
+              .withSuccessHandler(res => {
+                  staffTracker.value.isLoading = false;
+                  if (res.success) {
+                      staffTracker.value.data = res.data;
+                  } else {
+                      Swal.fire('Error', res.message, 'error');
+                  }
+              })
+              .withFailureHandler(err => {
+                  staffTracker.value.isLoading = false;
+                  Swal.fire('Error de Conexión', 'No se pudo cargar el tracker: ' + err, 'error');
+              })
+              .apiFetchStaffTrackerData(personName); // Usar el nombre del empleado para filtrar
+      };
+
+      // FUNCION NUEVA: Recarga manual (Botón Actualizar)
+      const reloadStaffTracker = () => {
+          if (staffTracker.value.name) {
+              loadStaffTrackerData(staffTracker.value.name);
+          }
+      };
+      
+      // Abre el tracker
+      const openStaffTracker = (person) => {
+          staffTracker.value.name = person.name;
+          staffTracker.value.previousView = currentView.value;
+          currentView.value = 'STAFF_TRACKER';
+          iframeTitle.value = `Tracker de ${person.name}`;
+          loadStaffTrackerData(person.name); // Carga inicial
+      };
+
+      const goBackToDept = () => {
+          currentView.value = staffTracker.value.previousView;
+      };
+
+      const closeIframe = () => { 
+        if (currentView.value === 'IFRAME' || currentView.value === 'MODULE_TABS') {
+            const mod = config.value.specialModules.find(m => m.id === currentModuleId.value);
+            if (mod && mod.id !== 'PPC_MASTER') goHome();
+        }
+        
+        if (currentDept.value) currentView.value = 'DEPT';
+        else goHome();
+      };
+
+
+      // Lógica Chips
+      const filteredStaffList = computed(() => {
+        const term = staffSearch.value.toLowerCase();
+        return config.value.staff.filter(p => {
+          const matchName = p.name.toLowerCase().includes(term);
+          const notSelected = !selectedResponsables.value.includes(p.name);
+          return matchName && notSelected;
+        }).slice(0, 5);
+      });
+
+      const addResponsable = (name) => { selectedResponsables.value.push(name); staffSearch.value = ''; showSuggestions.value = false; };
+      const removeResponsable = (index) => { selectedResponsables.value.splice(index, 1); };
+      const addFirstSuggestion = () => { if (filteredStaffList.value.length > 0) addResponsable(filteredStaffList.value[0].name); };
+
+      // Drag & Drop
+      const handleFile = (file) => {
+        isUploadingFile.value = true;
+        uploadSuccess.value = false;
+        ppcData.value.archivoUrl = ''; // Limpiar URL anterior
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          google.script.run
+              .withSuccessHandler(res => {
+                  isUploadingFile.value = false;
+                  if(res.success) { 
+                      uploadSuccess.value = true; 
+                      ppcData.value.archivoUrl = res.fileUrl; 
+                      
+                      // ✅ AVISO DE ÉXITO AL USUARIO
+                      Swal.fire({
+                          title: '¡Subida Exitosa!',
+                          text: `Archivo guardado en Drive. Carpeta: ${res.folder}`,
+                          icon: 'success',
+                          toast: true,
+                          position: 'top-end',
+                          showConfirmButton: false,
+                          timer: 4000
+                      });
+
+                  } else { 
+                      // ✅ AVISO DE ERROR AL USUARIO
+                      Swal.fire('Error de Carga', 'No se pudo guardar el archivo: ' + res.message, 'error'); 
+                      uploadSuccess.value = false;
+                  }
+              })
+              .withFailureHandler(err => {
+                  isUploadingFile.value = false;
+                  uploadSuccess.value = false;
+                  // ✅ AVISO DE FALLO DE CONEXIÓN
+                  Swal.fire('Error de Conexión', 'Fallo la comunicación con Apps Script: ' + err, 'error');
+              })
+              .uploadFileToDrive(e.target.result, 'doc', file.name); // Usamos 'doc' por defecto
+        };
+        reader.readAsDataURL(file);
+      };
+      const handleDrop = (e) => { dragOver.value = false; if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };
+      const handleFileSelect = (e) => { if(e.target.files.length) handleFile(e.target.files[0]); };
+
+      // Lógica de Carga de Datos PPC (Panel General)
+      const fetchPPCData = () => { 
+        if (fetchedPPCData.value.length > 0 && isFetchingPPC.value === false) return;
+
+        isFetchingPPC.value = true;
+        google.script.run.withSuccessHandler(res => {
+            isFetchingPPC.value = false;
+            if(res.success) {
+              fetchedPPCData.value = res.data.reverse();
+            } else {
+              Swal.fire('Error al cargar', res.message, 'error');
+            }
+        })
+        .withFailureHandler(err => {
+          isFetchingPPC.value = false;
+          Swal.fire('Error de Conexión', 'No se pudo contactar con el servidor. ' + err, 'error');
+        })
+        .apiFetchPPCData();
+      };
+
+      // Submit
+      const submitPPC = () => {
+        if(selectedResponsables.value.length === 0 || !ppcData.value.concepto) return Swal.fire('Atención', 'Asigne responsable y concepto.', 'warning');
+        
+        isSubmitting.value = true;
+        const payload = JSON.parse(JSON.stringify(ppcData.value));
+        payload.responsable = selectedResponsables.value.join(', ');
+
+        google.script.run.withSuccessHandler(res => {
+          isSubmitting.value = false;
+          if(res.success) {
+            Swal.fire('Guardado', res.message, 'success');
+            // Resetear formulario
+            ppcData.value = { especialidad: '', concepto: '', horas: '', horaFin: '', clasificacion: '', riesgos: '', prioridad: 'Media', cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' };
+            selectedResponsables.value = [];
+            uploadSuccess.value = false;
+          } else { Swal.fire('Error', res.message, 'error'); }
+        }).apiSavePPCData(payload);
+      };
+
+      const showUploadModal = async () => {
+        const { value: file } = await Swal.fire({
+          title: 'Subir Archivo', input: 'file', showCancelButton: true,
+          html: '<select id="swal-type" class="swal2-input"><option value="doc">Documento</option><option value="planos">Plano</option><option value="foto">Foto</option></select>'
+        });
+        if (file) {
+          const type = document.getElementById('swal-type').value;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            Swal.fire({ title: 'Subiendo...', didOpen: () => Swal.showLoading() });
+            google.script.run.withSuccessHandler(res => Swal.fire(res.success?'Éxito':'Error', res.success?'Archivo guardado':res.message, res.success?'success':'error')).uploadFileToDrive(e.target.result, type, file.name);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
+      // Computed Generales
+      const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
+      const pageTitle = computed(() => {
+        if (currentView.value === 'DASHBOARD') return 'Panel de Control';
+        if (currentView.value === 'PPC_FORM') return 'Gestión PPC';
+        if (currentView.value === 'DEPT') return currentDeptData.value.label;
+        if (currentView.value === 'STAFF_TRACKER') return `Tracker de ${staffTracker.value.name}`;
+        return iframeTitle.value;
+      });
+      const filteredStaff = computed(() => {
+        if (currentView.value !== 'DEPT') return [];
+        return config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
+      });
+
+      return {
+        loading, isSubmitting, sidebarOpen, currentView, currentDept, currentModuleId, config,
+        currentIframeUrl, iframeTitle, searchQuery, activeModuleTabs, ppcData,
+        selectedResponsables, staffSearch, showSuggestions, filteredStaffList,
+        dragOver, isUploadingFile, uploadSuccess,
+        goHome, selectDept, openModule, closeIframe, submitPPC, showUploadModal,
+        addResponsable, removeResponsable, addFirstSuggestion, handleDrop, handleFileSelect,
+        currentDeptData, pageTitle, filteredStaff,
+        
+        // ESTADOS Y FUNCIONES PPC GENERALES
+        ppcViewMode, isFetchingPPC, fetchedPPCData, fetchPPCData,
+        
+        // ESTADOS Y FUNCIONES DE TRACKER INDIVIDUAL
+        staffTracker, openStaffTracker, goBackToDept, reloadStaffTracker
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
