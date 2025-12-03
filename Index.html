@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont Workspace</title>
+  <title>Holtmont Workspace V20</title>
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,10 +12,14 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    /* VARIABLES */
+    /* VARIABLES Y ESTILOS GLOBALES */
     :root { --sidebar-w: 260px; --primary: #1e1e2d; --accent: #3699ff; --bg-body: #f3f6f9; }
     body { font-family: 'Inter', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; }
     
+    /* LOGIN */
+    .login-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .login-card { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+
     /* LAYOUT */
     .app-wrapper { display: flex; height: 100vh; width: 100vw; }
     .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; z-index: 100; transition: transform 0.3s; }
@@ -32,16 +36,15 @@
     .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
     .view-area { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
 
-    /* FORMULARIO ESTILOS */
+    /* FORM & UI */
     .form-container-pro, .list-container-pro .card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(76,87,125,0.02); padding: 40px; max-width: 1000px; margin: 0 auto; }
-    .list-container-pro .card { padding: 0; } /* Ajuste para la tarjeta de lista */
+    .list-container-pro .card { padding: 0; }
     .form-header { margin-bottom: 30px; border-bottom: 1px solid #eff2f5; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
     .form-label { font-weight: 600; color: #3f4254; margin-bottom: 8px; font-size: 0.9rem; }
     .form-control, .form-select { background-color: #f5f8fa; border: 1px solid #f5f8fa; color: #5e6278; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
     .form-control:focus { background-color: #eef3f7; border-color: #eef3f7; box-shadow: none; color: #3f4254; }
     .btn-submit { background-color: var(--accent); color: white; font-weight: 600; padding: 12px 30px; border-radius: 8px; border: none; transition: 0.3s; }
-    .btn-submit:hover { background-color: #187de4; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(54,153,255,0.3); }
-
+    
     /* CHIPS & LISTA */
     .chip-container { border: 1px solid #f5f8fa; background-color: #f5f8fa; border-radius: 8px; padding: 5px 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 48px; position: relative; }
     .chip-container:focus-within { background-color: #eef3f7; border-color: #eef3f7; }
@@ -57,11 +60,10 @@
 
     /* PRIORIDAD (PÍLDORAS) */
     .priority-group { display: flex; background: #f5f8fa; padding: 5px; border-radius: 50px; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
-    /* NUEVOS ESTILOS DE PRIORIDAD */
+    .priority-option { padding: 8px 15px; border-radius: 50px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #a1a5b7; transition: 0.2s; }
     .priority-option.active.urgente { background: #f1416c; color: white; }
     .priority-option.active.media { background: #ffc700; color: #3f4254; }
     .priority-option.active.baja { background: #50cd89; color: white; }
-    /* ESTILOS DE RIESGOS */
     .priority-option.active.bajo { background: #50cd89; color: white; }
     .priority-option.active.medio { background: #ffc700; color: #3f4254; }
     .priority-option.active.alto { background: #f1416c; color: white; }
@@ -71,13 +73,12 @@
     .drop-zone { border: 2px dashed #d1d5db; border-radius: 8px; background: #f9fafb; padding: 25px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
     .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: #f0f7ff; }
     .drop-zone i { font-size: 2rem; color: #9ca3af; margin-bottom: 10px; }
-    .drop-zone p { margin: 0; color: #6b7280; font-weight: 500; font-size: 0.9rem; }
     .file-input-hidden { position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer; }
     .uploading-state { color: var(--accent); font-weight: 600; }
     .upload-success { color: #10b981; font-weight: 600; }
 
-    /* UTILS */
-    .dept-card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(0,0,0,0.03); cursor: pointer; transition: 0.3s; border-top: 4px solid transparent; height: 100%; }
+    /* UTILS ADICIONALES */
+    .dept-card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(0,0,0,0.03); cursor: pointer; transition: 0.3s; border-top: 4px solid transparent; height: 100%; padding: 20px; text-align: center;}
     .dept-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
     .staff-card { background: white; border-radius: 10px; padding: 20px; border: 1px solid #f0f0f0; text-align: center; transition: 0.2s; }
     .staff-card:hover { border-color: var(--accent); box-shadow: 0 5px 15px rgba(54,153,255,0.1); }
@@ -89,28 +90,47 @@
     .tab-btn:hover { background: #e9ecef; }
     .tab-btn.active { background: white; color: var(--primary); font-weight: 700; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
     .loader-overlay { position: fixed; inset: 0; background: white; z-index: 999; display: flex; justify-content: center; align-items: center; }
-    @media (max-width: 768px) { .sidebar { position: fixed; height: 100%; transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } }
   </style>
 </head>
 <body>
 
 <div id="app" v-cloak>
-  <div v-if="loading" class="loader-overlay">
-    <div class="text-center"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div><p class="mt-3 fw-bold text-muted">Cargando...</p></div>
+  
+  <div v-if="!isLoggedIn" class="login-overlay">
+    <div class="login-card">
+      <h3 class="fw-bold mb-4 text-dark"><i class="fas fa-layer-group text-primary me-2"></i> HOLTMONT</h3>
+      <p class="text-muted mb-4">Ingreso Seguro V20</p>
+      <input type="password" v-model="loginPass" class="form-control form-control-lg text-center mb-3" placeholder="Contraseña..." @keyup.enter="doLogin">
+      <button class="btn btn-primary w-100 py-2 fw-bold" @click="doLogin" :disabled="loggingIn">
+        <span v-if="loggingIn"><i class="fas fa-spinner fa-spin"></i> Entrando...</span>
+        <span v-else>Ingresar</span>
+      </button>
+    </div>
   </div>
 
-  <div class="app-wrapper">
+  <div v-if="isLoggedIn" class="app-wrapper">
+    
     <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="brand"><i class="fas fa-layer-group me-2 text-primary"></i> HOLTMONT</div>
       <div class="menu">
         <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome"><i class="fas fa-home"></i> Inicio</div>
-        <div class="menu-header">Módulos</div>
-        <div class="nav-item" v-for="mod in config.specialModules" :class="{ active: currentModuleId === mod.id }" @click="openModule(mod)">
-          <i class="fas" :class="mod.icon" :style="{ color: mod.color }"></i> {{ mod.label }}
+        
+        <div v-if="config.specialModules && config.specialModules.length > 0">
+          <div class="menu-header">Módulos</div>
+          <div class="nav-item" v-for="mod in config.specialModules" :class="{ active: currentModuleId === mod.id }" @click="openModule(mod)">
+            <i class="fas" :class="mod.icon" :style="{ color: mod.color }"></i> {{ mod.label }}
+          </div>
         </div>
-        <div class="menu-header">Departamentos</div>
-        <div class="nav-item" v-for="(dept, key) in config.departments" :class="{ active: currentView === 'DEPT' && currentDept === key }" @click="selectDept(key)">
-          <i class="fas" :class="dept.icon"></i> {{ dept.label }}
+
+        <div v-if="Object.keys(config.departments).length > 0">
+          <div class="menu-header">Departamentos</div>
+          <div class="nav-item" v-for="(dept, key) in config.departments" :class="{ active: currentView === 'DEPT' && currentDept === key }" @click="selectDept(key)">
+            <i class="fas" :class="dept.icon"></i> {{ dept.label }}
+          </div>
+        </div>
+        
+        <div class="mt-auto p-3">
+             <button class="btn btn-outline-secondary btn-sm w-100" @click="logout"><i class="fas fa-sign-out-alt me-2"></i> Salir</button>
         </div>
       </div>
     </aside>
@@ -119,7 +139,7 @@
       <div class="top-bar">
         <button class="btn btn-sm d-md-none" @click="sidebarOpen = !sidebarOpen"><i class="fas fa-bars"></i></button>
         <h5 class="m-0 fw-bold text-dark">{{ pageTitle }}</h5>
-        <div><span class="badge bg-light text-dark border px-3 py-2"><i class="fas fa-user me-2"></i> Usuario</span></div>
+        <div><span class="badge bg-light text-dark border px-3 py-2"><i class="fas fa-user me-2"></i> {{ currentUser }}</span></div>
       </div>
 
       <div class="view-area" v-if="!['IFRAME', 'MODULE_TABS'].includes(currentView)">
@@ -129,21 +149,18 @@
             <div class="dept-card" @click="openModule(mod)" :style="{ borderTopColor: mod.color }">
               <i class="fas fa-2x mb-3" :class="mod.icon" :style="{ color: mod.color }"></i>
               <h5 class="fw-bold">{{ mod.label }}</h5>
-              <small class="text-muted">Acceso directo</small>
             </div>
           </div>
           <div class="col-md-4 col-xl-3" v-for="(dept, key) in config.departments">
             <div class="dept-card" @click="selectDept(key)" :style="{ borderTopColor: dept.color }">
               <i class="fas fa-2x mb-3" :class="dept.icon" :style="{ color: dept.color }"></i>
               <h5 class="fw-bold">{{ dept.label }}</h5>
-              <small class="text-muted">Ver personal</small>
             </div>
           </div>
         </div>
 
         <div v-if="currentView === 'PPC_FORM'">
           <div class="d-flex justify-content-end gap-3 mb-4">
-            <a href="https://docs.google.com/spreadsheets/d/1iwlanqnhHGjo9MdZtbsymXu1zCsdjRONdxqfYV6icck/edit" target="_blank" class="btn btn-outline-success px-4"><i class="fas fa-table me-2"></i> Ver Hoja</a>
             <button v-if="ppcViewMode === 'FORM'" class="btn btn-outline-primary px-4" @click="ppcViewMode = 'LIST'; fetchPPCData();"><i class="fas fa-list me-2"></i> Ver Panel</button>
             <button v-else class="btn btn-outline-primary px-4" @click="ppcViewMode = 'FORM'"><i class="fas fa-edit me-2"></i> Registrar Actividad</button>
           </div>
@@ -329,10 +346,10 @@
               <div class="card-body p-0">
                 <div v-if="staffTracker.isLoading" class="text-center p-5">
                   <div class="spinner-border text-primary" style="width: 2rem; height: 2rem;"></div>
-                  <p class="mt-3 text-muted">Cargando tareas de {{ staffTracker.name }}...</p>
+                  <p class="mt-3 text-muted">Buscando pestañas y cargando tareas...</p>
                 </div>
                 <div v-else-if="staffTracker.data.length === 0" class="alert alert-info m-4">
-                  {{ staffTracker.name }} no tiene tareas asignadas en el PPC.
+                  {{ staffTracker.name }} no tiene tareas asignadas o no se encontró su pestaña en el archivo maestro.
                 </div>
                 <div v-else class="table-responsive" style="max-height: 75vh;">
                   <table class="table table-striped table-sm mb-0 align-middle">
@@ -398,6 +415,56 @@
             </div>
           </div>
         </div>
+        
+        <div v-if="currentView === 'SALES_CRUD'" class="card shadow-sm border-0">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-danger"><i class="fas fa-chart-line me-2"></i> Control de Ventas</h5>
+            <div>
+               <button class="btn btn-sm btn-outline-secondary me-2" @click="fetchSalesData"><i class="fas fa-sync"></i> Recargar</button>
+               <button class="btn btn-sm btn-danger" @click="showSalesModal = true"><i class="fas fa-plus"></i> Nueva Venta</button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div v-if="salesLoading" class="text-center p-5"><div class="spinner-border text-danger"></div></div>
+            <div v-else-if="salesData.length === 0" class="text-center p-5 text-muted">No hay registros o no se ha configurado el ID de la hoja.</div>
+            <div v-else class="table-responsive" style="max-height: 75vh;">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-dark sticky-top">
+                        <tr>
+                            <th v-for="h in salesHeaders">{{ h }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="row in salesData">
+                            <td v-for="h in salesHeaders">{{ row[h] }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+          </div>
+
+          <div v-if="showSalesModal" class="modal d-block" style="background: rgba(0,0,0,0.5)">
+              <div class="modal-dialog">
+                  <div class="modal-content">
+                      <div class="modal-header">
+                          <h5 class="modal-title">Registrar Venta</h5>
+                          <button type="button" class="btn-close" @click="showSalesModal = false"></button>
+                      </div>
+                      <div class="modal-body">
+                          <p class="text-muted small">Los campos se generan dinámicamente basados en las columnas de tu hoja.</p>
+                          <div class="mb-2" v-for="h in salesHeaders" :key="h">
+                              <label class="form-label small fw-bold">{{h}}</label>
+                              <input type="text" class="form-control" v-model="newSaleData[h]">
+                          </div>
+                      </div>
+                      <div class="modal-footer">
+                          <button class="btn btn-secondary" @click="showSalesModal = false">Cancelar</button>
+                          <button class="btn btn-danger" @click="submitSale">Guardar</button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>
 
       </div>
 
@@ -422,9 +489,14 @@
 
   createApp({
     setup() {
-      // Estado Global
-      const loading = ref(true);
-      const isSubmitting = ref(false);
+      // ESTADO AUTH
+      const isLoggedIn = ref(false);
+      const loginPass = ref('');
+      const loggingIn = ref(false);
+      const currentUser = ref('');
+      const userRole = ref('');
+
+      // ESTADO GLOBAL
       const sidebarOpen = ref(false);
       const currentView = ref('DASHBOARD');
       const currentDept = ref('');
@@ -435,23 +507,12 @@
       const activeModuleTabs = ref([]);
       const config = ref({ departments: {}, staff: [], specialModules: [] });
       
-      // ESTADO PARA LA NUEVA VISTA DE TRACKER DE EMPLEADO
-      const staffTracker = ref({ 
-          name: '', 
-          data: [], 
-          isLoading: false, 
-          previousView: 'DEPT' 
-      }); 
-
-      // ESTADO PPC ACTUALIZADO
-      const ppcViewMode = ref('FORM'); // 'FORM' o 'LIST'
-      const isFetchingPPC = ref(false); // Estado de carga del listado general
-      const fetchedPPCData = ref([]); // Array para los datos cargados del panel
-      const ppcData = ref({ 
-        especialidad: '', concepto: '', horas: '', horaFin: '', 
-        clasificacion: '', riesgos: '', prioridad: 'Media', 
-        cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' 
-      });
+      // ESTADO PPC
+      const ppcViewMode = ref('FORM');
+      const isFetchingPPC = ref(false);
+      const fetchedPPCData = ref([]);
+      const ppcData = ref({ especialidad: '', concepto: '', horas: '', horaFin: '', clasificacion: '', riesgos: '', prioridad: 'Media', cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' });
+      const isSubmitting = ref(false);
       const selectedResponsables = ref([]);
       const staffSearch = ref('');
       const showSuggestions = ref(false);
@@ -459,62 +520,55 @@
       const isUploadingFile = ref(false);
       const uploadSuccess = ref(false);
 
-      onMounted(() => {
-        google.script.run.withSuccessHandler(data => { config.value = data; loading.value = false; })
-          .withFailureHandler(err => Swal.fire('Error', 'Error al cargar configuración: ' + err, 'error')).getSystemConfig();
-      });
+      // ESTADO TRACKER
+      const staffTracker = ref({ name: '', data: [], isLoading: false, previousView: 'DEPT' }); 
 
-      // Navegación
+      // ESTADO VENTAS
+      const salesData = ref([]);
+      const salesHeaders = ref([]);
+      const salesLoading = ref(false);
+      const showSalesModal = ref(false);
+      const newSaleData = ref({});
+
+      const doLogin = () => {
+          if(!loginPass.value) return;
+          loggingIn.value = true;
+          google.script.run.withSuccessHandler(res => {
+              loggingIn.value = false;
+              if (res.success) {
+                  isLoggedIn.value = true;
+                  currentUser.value = res.name;
+                  userRole.value = res.role;
+                  loadConfig(res.role);
+              } else {
+                  Swal.fire('Error', res.message, 'error');
+              }
+          }).apiLogin(loginPass.value);
+      };
+
+      const loadConfig = (role) => {
+          google.script.run.withSuccessHandler(data => {
+              config.value = data;
+              if (role === 'SALES') openModule(data.specialModules[0]);
+          }).getSystemConfig(role);
+      };
+
+      const logout = () => {
+          isLoggedIn.value = false;
+          loginPass.value = '';
+          currentView.value = 'DASHBOARD';
+      };
+
       const goHome = () => { currentView.value = 'DASHBOARD'; sidebarOpen.value = false; currentModuleId.value = ''; };
       const selectDept = (key) => { currentDept.value = key; currentView.value = 'DEPT'; searchQuery.value = ''; sidebarOpen.value = false; currentModuleId.value = ''; };
 
       const openModule = (mod) => {
         iframeTitle.value = mod.label; currentModuleId.value = mod.id;
-        if (mod.type === 'ppc_native') { currentView.value = 'PPC_FORM'; ppcViewMode.value = 'FORM';} // Resetear a formulario al abrir
+        if (mod.type === 'ppc_native') { currentView.value = 'PPC_FORM'; ppcViewMode.value = 'FORM'; }
+        else if (mod.type === 'sales_native') { currentView.value = 'SALES_CRUD'; fetchSalesData(); }
         else if (mod.type === 'tabs') { activeModuleTabs.value = mod.tabs; currentIframeUrl.value = mod.tabs[0].url; currentView.value = 'MODULE_TABS'; }
         else { currentIframeUrl.value = mod.url; currentView.value = 'IFRAME'; }
         sidebarOpen.value = false;
-      };
-
-      // FUNCIÓN CLAVE: Cargar/Recargar Tracker del Empleado
-      const loadStaffTrackerData = (personName) => {
-          staffTracker.value.isLoading = true;
-          staffTracker.value.data = [];
-
-          google.script.run
-              .withSuccessHandler(res => {
-                  staffTracker.value.isLoading = false;
-                  if (res.success) {
-                      staffTracker.value.data = res.data;
-                  } else {
-                      Swal.fire('Error', res.message, 'error');
-                  }
-              })
-              .withFailureHandler(err => {
-                  staffTracker.value.isLoading = false;
-                  Swal.fire('Error de Conexión', 'No se pudo cargar el tracker: ' + err, 'error');
-              })
-              .apiFetchStaffTrackerData(personName); // Usar el nombre del empleado para filtrar
-      };
-
-      // FUNCION NUEVA: Recarga manual (Botón Actualizar)
-      const reloadStaffTracker = () => {
-          if (staffTracker.value.name) {
-              loadStaffTrackerData(staffTracker.value.name);
-          }
-      };
-      
-      // Abre el tracker
-      const openStaffTracker = (person) => {
-          staffTracker.value.name = person.name;
-          staffTracker.value.previousView = currentView.value;
-          currentView.value = 'STAFF_TRACKER';
-          iframeTitle.value = `Tracker de ${person.name}`;
-          loadStaffTrackerData(person.name); // Carga inicial
-      };
-
-      const goBackToDept = () => {
-          currentView.value = staffTracker.value.previousView;
       };
 
       const closeIframe = () => { 
@@ -522,13 +576,79 @@
             const mod = config.value.specialModules.find(m => m.id === currentModuleId.value);
             if (mod && mod.id !== 'PPC_MASTER') goHome();
         }
-        
-        if (currentDept.value) currentView.value = 'DEPT';
-        else goHome();
+        if (currentDept.value) currentView.value = 'DEPT'; else goHome();
       };
 
+      const fetchPPCData = () => { 
+        if (fetchedPPCData.value.length > 0 && isFetchingPPC.value === false) return;
+        isFetchingPPC.value = true;
+        google.script.run.withSuccessHandler(res => {
+            isFetchingPPC.value = false;
+            if(res.success) fetchedPPCData.value = res.data.reverse();
+            else Swal.fire('Error al cargar', res.message, 'error');
+        }).apiFetchPPCData();
+      };
 
-      // Lógica Chips
+      const submitPPC = () => {
+        if(selectedResponsables.value.length === 0 || !ppcData.value.concepto) return Swal.fire('Atención', 'Asigne responsable y concepto.', 'warning');
+        isSubmitting.value = true;
+        const payload = JSON.parse(JSON.stringify(ppcData.value));
+        payload.responsable = selectedResponsables.value.join(', ');
+        google.script.run.withSuccessHandler(res => {
+          isSubmitting.value = false;
+          if(res.success) {
+            Swal.fire('Guardado', res.message, 'success');
+            ppcData.value = { especialidad: '', concepto: '', horas: '', horaFin: '', clasificacion: '', riesgos: '', prioridad: 'Media', cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' };
+            selectedResponsables.value = [];
+            uploadSuccess.value = false;
+          } else { Swal.fire('Error', res.message, 'error'); }
+        }).apiSavePPCData(payload);
+      };
+
+      // STAFF TRACKER
+      const loadStaffTrackerData = (personName) => {
+          staffTracker.value.isLoading = true;
+          staffTracker.value.data = [];
+          google.script.run.withSuccessHandler(res => {
+                  staffTracker.value.isLoading = false;
+                  if (res.success) staffTracker.value.data = res.data;
+                  else Swal.fire('Error', res.message, 'error');
+          }).apiFetchStaffTrackerData(personName);
+      };
+      const reloadStaffTracker = () => { if (staffTracker.value.name) loadStaffTrackerData(staffTracker.value.name); };
+      const openStaffTracker = (person) => {
+          staffTracker.value.name = person.name;
+          staffTracker.value.previousView = currentView.value;
+          currentView.value = 'STAFF_TRACKER';
+          iframeTitle.value = `Tracker de ${person.name}`;
+          loadStaffTrackerData(person.name);
+      };
+      const goBackToDept = () => { currentView.value = staffTracker.value.previousView; };
+
+      // VENTAS (ANTONIA)
+      const fetchSalesData = () => {
+          salesLoading.value = true;
+          google.script.run.withSuccessHandler(res => {
+              salesLoading.value = false;
+              if(res.success) {
+                  salesData.value = res.data;
+                  salesHeaders.value = res.headers || [];
+              }
+          }).apiFetchSalesData();
+      };
+      const submitSale = () => {
+          google.script.run.withSuccessHandler(res => {
+             if(res.success) {
+                 Swal.fire('Guardado', 'Registro exitoso', 'success');
+                 showSalesModal.value = false;
+                 newSaleData.value = {};
+                 fetchSalesData();
+             } else {
+                 Swal.fire('Error', res.message, 'error');
+             }
+          }).apiSaveSaleData(JSON.parse(JSON.stringify(newSaleData.value)));
+      };
+
       const filteredStaffList = computed(() => {
         const term = staffSearch.value.toLowerCase();
         return config.value.staff.filter(p => {
@@ -537,117 +657,38 @@
           return matchName && notSelected;
         }).slice(0, 5);
       });
-
       const addResponsable = (name) => { selectedResponsables.value.push(name); staffSearch.value = ''; showSuggestions.value = false; };
       const removeResponsable = (index) => { selectedResponsables.value.splice(index, 1); };
       const addFirstSuggestion = () => { if (filteredStaffList.value.length > 0) addResponsable(filteredStaffList.value[0].name); };
-
-      // Drag & Drop
+      
       const handleFile = (file) => {
         isUploadingFile.value = true;
         uploadSuccess.value = false;
-        ppcData.value.archivoUrl = ''; // Limpiar URL anterior
-
+        ppcData.value.archivoUrl = '';
         const reader = new FileReader();
         reader.onload = (e) => {
-          google.script.run
-              .withSuccessHandler(res => {
+          google.script.run.withSuccessHandler(res => {
                   isUploadingFile.value = false;
                   if(res.success) { 
                       uploadSuccess.value = true; 
                       ppcData.value.archivoUrl = res.fileUrl; 
-                      
-                      // ✅ AVISO DE ÉXITO AL USUARIO
-                      Swal.fire({
-                          title: '¡Subida Exitosa!',
-                          text: `Archivo guardado en Drive. Carpeta: ${res.folder}`,
-                          icon: 'success',
-                          toast: true,
-                          position: 'top-end',
-                          showConfirmButton: false,
-                          timer: 4000
-                      });
-
+                      Swal.fire({ title: 'Subida Exitosa!', icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000 });
                   } else { 
-                      // ✅ AVISO DE ERROR AL USUARIO
-                      Swal.fire('Error de Carga', 'No se pudo guardar el archivo: ' + res.message, 'error'); 
+                      Swal.fire('Error', res.message, 'error'); 
                       uploadSuccess.value = false;
                   }
-              })
-              .withFailureHandler(err => {
-                  isUploadingFile.value = false;
-                  uploadSuccess.value = false;
-                  // ✅ AVISO DE FALLO DE CONEXIÓN
-                  Swal.fire('Error de Conexión', 'Fallo la comunicación con Apps Script: ' + err, 'error');
-              })
-              .uploadFileToDrive(e.target.result, 'doc', file.name); // Usamos 'doc' por defecto
+              }).uploadFileToDrive(e.target.result, 'doc', file.name);
         };
         reader.readAsDataURL(file);
       };
       const handleDrop = (e) => { dragOver.value = false; if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };
       const handleFileSelect = (e) => { if(e.target.files.length) handleFile(e.target.files[0]); };
 
-      // Lógica de Carga de Datos PPC (Panel General)
-      const fetchPPCData = () => { 
-        if (fetchedPPCData.value.length > 0 && isFetchingPPC.value === false) return;
-
-        isFetchingPPC.value = true;
-        google.script.run.withSuccessHandler(res => {
-            isFetchingPPC.value = false;
-            if(res.success) {
-              fetchedPPCData.value = res.data.reverse();
-            } else {
-              Swal.fire('Error al cargar', res.message, 'error');
-            }
-        })
-        .withFailureHandler(err => {
-          isFetchingPPC.value = false;
-          Swal.fire('Error de Conexión', 'No se pudo contactar con el servidor. ' + err, 'error');
-        })
-        .apiFetchPPCData();
-      };
-
-      // Submit
-      const submitPPC = () => {
-        if(selectedResponsables.value.length === 0 || !ppcData.value.concepto) return Swal.fire('Atención', 'Asigne responsable y concepto.', 'warning');
-        
-        isSubmitting.value = true;
-        const payload = JSON.parse(JSON.stringify(ppcData.value));
-        payload.responsable = selectedResponsables.value.join(', ');
-
-        google.script.run.withSuccessHandler(res => {
-          isSubmitting.value = false;
-          if(res.success) {
-            Swal.fire('Guardado', res.message, 'success');
-            // Resetear formulario
-            ppcData.value = { especialidad: '', concepto: '', horas: '', horaFin: '', clasificacion: '', riesgos: '', prioridad: 'Media', cumplimiento: 'NO', archivoUrl: '', comentarios: '', comentariosPrevios: '' };
-            selectedResponsables.value = [];
-            uploadSuccess.value = false;
-          } else { Swal.fire('Error', res.message, 'error'); }
-        }).apiSavePPCData(payload);
-      };
-
-      const showUploadModal = async () => {
-        const { value: file } = await Swal.fire({
-          title: 'Subir Archivo', input: 'file', showCancelButton: true,
-          html: '<select id="swal-type" class="swal2-input"><option value="doc">Documento</option><option value="planos">Plano</option><option value="foto">Foto</option></select>'
-        });
-        if (file) {
-          const type = document.getElementById('swal-type').value;
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            Swal.fire({ title: 'Subiendo...', didOpen: () => Swal.showLoading() });
-            google.script.run.withSuccessHandler(res => Swal.fire(res.success?'Éxito':'Error', res.success?'Archivo guardado':res.message, res.success?'success':'error')).uploadFileToDrive(e.target.result, type, file.name);
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-
-      // Computed Generales
       const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
       const pageTitle = computed(() => {
         if (currentView.value === 'DASHBOARD') return 'Panel de Control';
         if (currentView.value === 'PPC_FORM') return 'Gestión PPC';
+        if (currentView.value === 'SALES_CRUD') return 'Gestión de Ventas';
         if (currentView.value === 'DEPT') return currentDeptData.value.label;
         if (currentView.value === 'STAFF_TRACKER') return `Tracker de ${staffTracker.value.name}`;
         return iframeTitle.value;
@@ -658,19 +699,19 @@
       });
 
       return {
-        loading, isSubmitting, sidebarOpen, currentView, currentDept, currentModuleId, config,
-        currentIframeUrl, iframeTitle, searchQuery, activeModuleTabs, ppcData,
-        selectedResponsables, staffSearch, showSuggestions, filteredStaffList,
-        dragOver, isUploadingFile, uploadSuccess,
-        goHome, selectDept, openModule, closeIframe, submitPPC, showUploadModal,
+        isLoggedIn, loginPass, loggingIn, doLogin, logout, currentUser,
+        sidebarOpen, currentView, currentDept, currentModuleId, config,
+        currentIframeUrl, iframeTitle, searchQuery, activeModuleTabs, 
+        ppcData, selectedResponsables, staffSearch, showSuggestions, filteredStaffList,
+        dragOver, isUploadingFile, uploadSuccess, isSubmitting,
+        ppcViewMode, isFetchingPPC, fetchedPPCData, 
+        staffTracker, salesData, salesHeaders, salesLoading, showSalesModal, newSaleData,
+        goHome, selectDept, openModule, closeIframe, 
+        submitPPC, fetchPPCData,
+        openStaffTracker, goBackToDept, reloadStaffTracker,
+        fetchSalesData, submitSale,
         addResponsable, removeResponsable, addFirstSuggestion, handleDrop, handleFileSelect,
-        currentDeptData, pageTitle, filteredStaff,
-        
-        // ESTADOS Y FUNCIONES PPC GENERALES
-        ppcViewMode, isFetchingPPC, fetchedPPCData, fetchPPCData,
-        
-        // ESTADOS Y FUNCIONES DE TRACKER INDIVIDUAL
-        staffTracker, openStaffTracker, goBackToDept, reloadStaffTracker
+        currentDeptData, pageTitle, filteredStaff
       };
     }
   }).mount('#app');
