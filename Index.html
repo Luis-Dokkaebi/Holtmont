@@ -14,7 +14,7 @@
   <style>
     /* VARIABLES Y ESTILOS GLOBALES */
     :root { --sidebar-w: 260px; --primary: #1e1e2d; --accent: #3699ff; --bg-body: #f3f6f9; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; font-size: 0.9rem; }
     
     /* LOGIN */
     .login-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 2000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
@@ -36,7 +36,7 @@
     .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
     .view-area { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
 
-    /* FORM & UI */
+    /* FORM & UI GENERICO */
     .form-container-pro, .list-container-pro .card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(76,87,125,0.02); padding: 40px; max-width: 1000px; margin: 0 auto; }
     .list-container-pro .card { padding: 0; }
     .form-header { margin-bottom: 30px; border-bottom: 1px solid #eff2f5; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -45,7 +45,7 @@
     .form-control:focus { background-color: #eef3f7; border-color: #eef3f7; box-shadow: none; color: #3f4254; }
     .btn-submit { background-color: var(--accent); color: white; font-weight: 600; padding: 12px 30px; border-radius: 8px; border: none; transition: 0.3s; }
     
-    /* CHIPS & LISTA */
+    /* CHIPS & LISTA (PPC) */
     .chip-container { border: 1px solid #f5f8fa; background-color: #f5f8fa; border-radius: 8px; padding: 5px 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 48px; position: relative; }
     .chip-container:focus-within { background-color: #eef3f7; border-color: #eef3f7; }
     .user-chip { background-color: white; border: 1px solid #e1e3ea; border-radius: 50px; padding: 4px 10px 4px 4px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; color: #3f4254; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
@@ -89,7 +89,14 @@
     .tab-btn { padding: 8px 15px; border: none; background: transparent; cursor: pointer; font-weight: 500; color: #6c757d; border-radius: 5px 5px 0 0; }
     .tab-btn:hover { background: #e9ecef; }
     .tab-btn.active { background: white; color: var(--primary); font-weight: 700; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
-    .loader-overlay { position: fixed; inset: 0; background: white; z-index: 999; display: flex; justify-content: center; align-items: center; }
+    
+    /* TABLAS NATIVAS EDITABLES (CRÍTICO) */
+    .table-native th { background-color: #f0f2f5; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; vertical-align: middle; color: #5e6278; font-weight: 700; white-space: nowrap; }
+    .table-native td { vertical-align: middle; padding: 0.25rem 0.5rem; }
+    .table-native input, .table-native select, .table-native textarea { border: 1px solid transparent; background: transparent; font-size: 0.85rem; width: 100%; color: #3f4254; padding: 4px; border-radius: 4px; }
+    .table-native input:focus, .table-native select:focus, .table-native textarea:focus { border-color: var(--accent); background: white; outline: none; box-shadow: 0 0 0 2px rgba(54,153,255,0.1); }
+    .table-native tr:hover { background-color: #f9f9f9; }
+    .table-native tr:hover input { background-color: white; border-color: #e4e6ef; }
   </style>
 </head>
 <body>
@@ -315,103 +322,104 @@
           </div>
           <div class="row g-3">
             <div class="col-md-4 col-lg-3" v-for="p in filteredStaff">
-              <div class="staff-card h-100">
+              <div class="staff-card h-100" @click="openStaffTracker(p)">
+                <div class="avatar-circle mb-3 mx-auto bg-light text-primary fw-bold d-flex align-items-center justify-content-center" style="width:60px;height:60px;border-radius:50%;font-size:1.5rem">
+                    {{ p.name.charAt(0) }}
+                </div>
                 <h6 class="fw-bold text-dark">{{ p.name }}</h6>
-                <button class="btn btn-sm w-100 mt-3 text-white" :style="{ backgroundColor: currentDeptData.color }" @click="openStaffTracker(p)">
-                  <i class="fas fa-eye me-1"></i> Ver Tracker
+                <small class="text-muted">{{ p.dept }}</small>
+                <button class="btn btn-sm w-100 mt-3 text-white" :style="{ backgroundColor: currentDeptData.color }">
+                  <i class="fas fa-eye me-1"></i> Abrir Tracker
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-if="currentView === 'STAFF_TRACKER'">
-          <div class="d-flex justify-content-between mb-4 align-items-center">
-            <button class="btn btn-light border" @click="goBackToDept"><i class="fas fa-arrow-left"></i> Volver a {{ currentDeptData.label }}</button>
-            <h4 class="fw-bold text-dark m-0">Tracker de {{ staffTracker.name }}</h4>
+        <div v-if="currentView === 'STAFF_TRACKER'" class="h-100 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn btn-sm btn-light border" @click="goBackToDept"><i class="fas fa-arrow-left"></i> Volver</button>
+            <div>
+                <button class="btn btn-primary btn-sm me-2" @click="openModule({id: 'PPC_MASTER', label: 'Panel PPC', type: 'ppc_native'})"><i class="fas fa-plus"></i> Nueva Tarea</button>
+                <button class="btn btn-sm btn-success me-2" @click="reloadStaffTracker"><i class="fas fa-sync"></i> Recargar Datos</button>
+                <span class="badge bg-warning text-dark">Modo Edición Activo</span>
+            </div>
           </div>
 
-          <div class="d-flex justify-content-end gap-3 mb-4">
-            <button class="btn btn-primary px-4" @click="openModule({id: 'PPC_MASTER', label: 'Panel PPC', type: 'ppc_native'})">
-                <i class="fas fa-plus me-2"></i> Realizar Alta
-            </button>
-            <button class="btn btn-success px-4" :disabled="staffTracker.isLoading" @click="reloadStaffTracker">
-                <span v-if="staffTracker.isLoading"><i class="fas fa-spinner fa-spin me-2"></i> Actualizando...</span>
-                <span v-else><i class="fas fa-sync-alt me-2"></i> Actualizar</span>
-            </button>
-          </div>
-
-          <div class="list-container-pro p-0">
-            <div class="card shadow-sm">
-              <div class="card-body p-0">
-                <div v-if="staffTracker.isLoading" class="text-center p-5">
-                  <div class="spinner-border text-primary" style="width: 2rem; height: 2rem;"></div>
-                  <p class="mt-3 text-muted">Buscando pestañas y cargando tareas...</p>
-                </div>
-                <div v-else-if="staffTracker.data.length === 0" class="alert alert-info m-4">
-                  {{ staffTracker.name }} no tiene tareas asignadas o no se encontró su pestaña en el archivo maestro.
-                </div>
-                <div v-else class="table-responsive" style="max-height: 75vh;">
-                  <table class="table table-striped table-sm mb-0 align-middle">
-                    <thead class="bg-light sticky-top">
-                      <tr>
-                        <th>ID</th>
-                        <th style="width: 7%;">Prioridad</th>
-                        <th style="width: 7%;">Clasif.</th>
-                        <th>Concepto (Esp.)</th>
-                        <th>Hrs/Fin</th>
-                        <th>Riesgos</th>
-                        <th style="width: 15%; background-color: #e9ecef;">Comentarios Previos (Historial)</th>
-                        <th style="width: 15%;">Comentarios Actuales</th>
-                        <th>Archivos</th>
-                        <th>Cumpl.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="item in staffTracker.data" :key="item.id">
-                        <td><span class="badge bg-primary">{{ item.id }}</span></td>
-                        <td>
-                            <span class="badge" 
-                                  :class="{
-                                      'bg-danger': item.prioridad === 'Urgente' || item.prioridad === 'Catastrófica', 
-                                      'bg-warning text-dark': item.prioridad === 'Media', 
-                                      'bg-success': item.prioridad === 'Baja'
-                                  }">{{ item.prioridad }}</span>
-                        </td>
-                        <td><span class="badge bg-secondary">{{ item.clasificacion }}</span></td>
-                        <td class="text-wrap" style="max-width: 250px; font-size: 0.9rem;">
-                            <div class="fw-bold">{{ item.concepto }}</div>
-                            <small class="text-muted">({{ item.especialidad }})</small>
-                        </td>
-                        <td>
-                            <div class="fw-bold">{{ item.horas || '-' }} hrs</div>
-                            <small class="text-muted" v-if="item.fechaAlta && item.fechaAlta.toString().trim() !== ''">Alta: {{ item.fechaAlta }}</small>
-                            <small class="text-muted" v-else>Fin: {{ item.horaFin || 'N/A' }}</small>
-                        </td>
-                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem;">{{ item.riesgos || '-' }}</td>
-                        
-                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem; background-color: #f8f9fa;">
-                            <span v-if="item.comentariosPrevios && item.comentariosPrevios.toString().trim() !== ''">{{ item.comentariosPrevios }}</span>
-                            <span v-else class="text-muted">N/A</span>
-                        </td>
-
-                        <td class="text-wrap" style="max-width: 150px; font-size: 0.85rem;">
-                            <span v-if="item.comentarios && item.comentarios.toString().trim() !== ''">{{ item.comentarios }}</span>
-                            <span v-else class="text-muted">Sin notas</span>
-                        </td>
-
-                        <td>
-                            <a v-if="item.archivoUrl && item.archivoUrl.toString().trim() !== ''" :href="item.archivoUrl" target="_blank" class="btn btn-sm btn-outline-info p-1">
-                                <i class="fas fa-file-alt"></i>
-                            </a>
-                            <span v-else>-</span>
-                        </td>
-                        <td><i class="fas fa-lg" :class="{'fa-check-circle text-success': item.cumplimiento === 'SI', 'fa-times-circle text-danger': item.cumplimiento === 'NO'}"></i></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+          <div class="card shadow-sm flex-fill overflow-hidden d-flex flex-column">
+            <div class="card-body p-0 table-responsive">
+              <div v-if="staffTracker.isLoading" class="text-center p-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando hoja nativa del empleado...</p>
               </div>
+              <div v-else-if="staffTracker.data.length === 0" class="p-5 text-center text-muted">
+                <p>No hay datos o no se detectó la tabla.</p>
+                <small class="text-danger" v-if="staffTracker.message">{{ staffTracker.message }}</small>
+              </div>
+              <table v-else class="table table-native table-bordered mb-0">
+                <thead class="sticky-top border-bottom bg-light">
+                  <tr>
+                    <th style="width: 50px;">Acción</th>
+                    <th style="width: 80px;">Folio</th>
+                    <th style="width: 100px;">Alta</th>
+                    <th style="width: 90px;">Fecha</th>
+                    <th style="width: 70px;">Hora</th>
+                    <th style="width: 100px;">Clasif.</th>
+                    <th style="min-width: 250px;">Concepto</th>
+                    <th style="width: 150px;">Involucrados</th>
+                    <th style="width: 80px;">Avance %</th>
+                    <th style="width: 100px;">Est. Fin</th>
+                    <th style="width: 80px;">Reloj</th>
+                    <th style="width: 150px;">Restricciones</th>
+                    <th style="width: 100px;">Prioridad</th>
+                    <th style="width: 100px;">Riesgos</th>
+                    <th style="width: 100px;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(task, index) in staffTracker.data" :key="task.id">
+                    <td class="text-center bg-light">
+                        <button class="btn btn-sm btn-primary" title="Guardar cambios de esta fila" @click="saveRow(task)">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </td>
+                    <td><input v-model="task.id" readonly class="fw-bold text-muted bg-light"></td>
+                    <td><input v-model="task.alta"></td>
+                    <td><input v-model="task.fecha" placeholder="DD/MM/YYYY"></td>
+                    <td><input v-model="task.hora"></td>
+                    <td>
+                        <select v-model="task.clasificacion">
+                            <option value="">-</option>
+                            <option value="A">A</option>
+                            <option value="AA">AA</option>
+                            <option value="AAA">AAA</option>
+                        </select>
+                    </td>
+                    <td><textarea v-model="task.concepto" rows="1" style="min-height: 28px; resize: vertical;"></textarea></td>
+                    <td><input v-model="task.involucrados"></td>
+                    <td><input v-model="task.avance"></td>
+                    <td><input v-model="task.fechaEstFin"></td>
+                    <td><input v-model="task.reloj"></td>
+                    <td><textarea v-model="task.restricciones" rows="1"></textarea></td>
+                    <td>
+                        <select v-model="task.prioridades">
+                            <option value="Baja">Baja</option>
+                            <option value="Media">Media</option>
+                            <option value="Urgente">Urgente</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select v-model="task.riesgos">
+                            <option value="Bajo">Bajo</option>
+                            <option value="Medio">Medio</option>
+                            <option value="Alto">Alto</option>
+                            <option value="Catastrófico">Catastrófico</option>
+                        </select>
+                    </td>
+                    <td><input v-model="task.status"></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -521,7 +529,7 @@
       const uploadSuccess = ref(false);
 
       // ESTADO TRACKER
-      const staffTracker = ref({ name: '', data: [], isLoading: false, previousView: 'DEPT' }); 
+      const staffTracker = ref({ name: '', data: [], isLoading: false, previousView: 'DEPT', message: '' }); 
 
       // ESTADO VENTAS
       const salesData = ref([]);
@@ -530,6 +538,7 @@
       const showSalesModal = ref(false);
       const newSaleData = ref({});
 
+      // AUTH & INIT
       const doLogin = () => {
           if(!loginPass.value) return;
           loggingIn.value = true;
@@ -559,6 +568,7 @@
           currentView.value = 'DASHBOARD';
       };
 
+      // NAVEGACION
       const goHome = () => { currentView.value = 'DASHBOARD'; sidebarOpen.value = false; currentModuleId.value = ''; };
       const selectDept = (key) => { currentDept.value = key; currentView.value = 'DEPT'; searchQuery.value = ''; sidebarOpen.value = false; currentModuleId.value = ''; };
 
@@ -579,6 +589,7 @@
         if (currentDept.value) currentView.value = 'DEPT'; else goHome();
       };
 
+      // LOGICA PPC
       const fetchPPCData = () => { 
         if (fetchedPPCData.value.length > 0 && isFetchingPPC.value === false) return;
         isFetchingPPC.value = true;
@@ -605,17 +616,7 @@
         }).apiSavePPCData(payload);
       };
 
-      // STAFF TRACKER
-      const loadStaffTrackerData = (personName) => {
-          staffTracker.value.isLoading = true;
-          staffTracker.value.data = [];
-          google.script.run.withSuccessHandler(res => {
-                  staffTracker.value.isLoading = false;
-                  if (res.success) staffTracker.value.data = res.data;
-                  else Swal.fire('Error', res.message, 'error');
-          }).apiFetchStaffTrackerData(personName);
-      };
-      const reloadStaffTracker = () => { if (staffTracker.value.name) loadStaffTrackerData(staffTracker.value.name); };
+      // STAFF TRACKER (MODIFICADO PARA EDICION)
       const openStaffTracker = (person) => {
           staffTracker.value.name = person.name;
           staffTracker.value.previousView = currentView.value;
@@ -623,7 +624,41 @@
           iframeTitle.value = `Tracker de ${person.name}`;
           loadStaffTrackerData(person.name);
       };
+
+      const loadStaffTrackerData = (personName) => {
+          staffTracker.value.isLoading = true;
+          staffTracker.value.data = [];
+          staffTracker.value.message = '';
+          google.script.run.withSuccessHandler(res => {
+                  staffTracker.value.isLoading = false;
+                  if (res.success) {
+                    staffTracker.value.data = res.data;
+                    if(res.data.length === 0) staffTracker.value.message = res.message || 'Sin datos';
+                  }
+                  else {
+                    Swal.fire('Error', res.message, 'error');
+                    staffTracker.value.message = res.message;
+                  }
+          }).apiFetchStaffTrackerData(personName);
+      };
+      
+      const reloadStaffTracker = () => { if (staffTracker.value.name) loadStaffTrackerData(staffTracker.value.name); };
       const goBackToDept = () => { currentView.value = staffTracker.value.previousView; };
+
+      const saveRow = (task) => {
+        const taskPayload = JSON.parse(JSON.stringify(task));
+        const Toast = Swal.mixin({toast: true, position: 'top-end', showConfirmButton: false, timer: 3000});
+        Swal.fire({title: 'Guardando...', didOpen: () => Swal.showLoading()});
+        
+        google.script.run.withSuccessHandler(res => {
+            Swal.close();
+            if(res.success) {
+                Toast.fire({ icon: 'success', title: 'Fila actualizada' });
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        }).apiUpdateTask(staffTracker.value.name, taskPayload);
+      };
 
       // VENTAS (ANTONIA)
       const fetchSalesData = () => {
@@ -649,6 +684,7 @@
           }).apiSaveSaleData(JSON.parse(JSON.stringify(newSaleData.value)));
       };
 
+      // HELPERS
       const filteredStaffList = computed(() => {
         const term = staffSearch.value.toLowerCase();
         return config.value.staff.filter(p => {
@@ -690,7 +726,7 @@
         if (currentView.value === 'PPC_FORM') return 'Gestión PPC';
         if (currentView.value === 'SALES_CRUD') return 'Gestión de Ventas';
         if (currentView.value === 'DEPT') return currentDeptData.value.label;
-        if (currentView.value === 'STAFF_TRACKER') return `Tracker de ${staffTracker.value.name}`;
+        if (currentView.value === 'STAFF_TRACKER') return `Tracker: ${staffTracker.value.name}`;
         return iframeTitle.value;
       });
       const filteredStaff = computed(() => {
@@ -708,7 +744,7 @@
         staffTracker, salesData, salesHeaders, salesLoading, showSalesModal, newSaleData,
         goHome, selectDept, openModule, closeIframe, 
         submitPPC, fetchPPCData,
-        openStaffTracker, goBackToDept, reloadStaffTracker,
+        openStaffTracker, goBackToDept, reloadStaffTracker, saveRow,
         fetchSalesData, submitSale,
         addResponsable, removeResponsable, addFirstSuggestion, handleDrop, handleFileSelect,
         currentDeptData, pageTitle, filteredStaff
