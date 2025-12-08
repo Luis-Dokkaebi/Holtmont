@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V87</title>
+  <title>Holtmont V111</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -13,11 +13,56 @@
   <style>
     :root { --sidebar-w: 260px; --primary: #1e1e2d; --accent: #3699ff; --bg-body: #f3f6f9; }
     body { font-family: 'Roboto', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; font-size: 13px; }
-    /* EXCEL TABLES */
-    .excel-container { background: white; border: 1px solid #c0c0c0; overflow: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; width: 100%; }
-    .table-excel { width: max-content; min-width: 100%; border-collapse: collapse; background-color: #fff; table-layout: fixed; }
-    .table-excel th { background-color: #f3f3f3; color: #333; font-weight: 600; text-align: center; border: 1px solid #c0c0c0; padding: 8px 4px; font-size: 12px; position: sticky; top: 0; z-index: 10; white-space: nowrap; box-shadow: 0 1px 0 #ccc; }
-    .table-excel td { border: 1px solid #d4d4d4; padding: 0; margin: 0; height: 32px; vertical-align: top; }
+    
+    /* FIX: CONTENEDOR PRINCIPAL SIN SCROLL */
+    .content-wrapper { 
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        background: var(--bg-body); 
+        overflow: hidden; 
+        position: relative;
+    }
+    
+    /* FIX: AREA DE VISTA SIN SCROLL EN PADRE, SCROLL EN HIJOS */
+    .view-area { 
+        flex: 1; 
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; 
+        padding: 20px; 
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* EXCEL TABLES: SCROLL INTERNO Y FLOTANTE */
+    .excel-container { 
+        flex: 1; 
+        overflow: auto; /* Scroll en ambas direcciones AQUÍ */
+        background: white; 
+        border: 1px solid #c0c0c0; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+        margin-bottom: 0; /* Sin margen para aprovechar espacio */
+        width: 100%;
+        scrollbar-width: thin;
+        scrollbar-color: #a0a0a0 #f1f1f1;
+    }
+    
+    /* Scrollbars visibles */
+    .excel-container::-webkit-scrollbar { height: 14px; width: 14px; }
+    .excel-container::-webkit-scrollbar-track { background: #f1f1f1; }
+    .excel-container::-webkit-scrollbar-thumb { background: #888; border-radius: 7px; border: 3px solid #f1f1f1; }
+    .excel-container::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    .table-excel { 
+        width: max-content; 
+        min-width: 100%; 
+        border-collapse: collapse; 
+        background-color: #fff; 
+        table-layout: fixed; 
+    }
+    .table-excel th { background-color: #f3f3f3; color: #333; font-weight: 600; text-align: center; border: 1px solid #c0c0c0; padding: 8px 4px; font-size: 12px; position: sticky; top: 0; z-index: 20; white-space: nowrap; box-shadow: 0 1px 0 #ccc; }
+    .table-excel td { border: 1px solid #d4d4d4; padding: 0; margin: 0; height: 32px; vertical-align: top; position: relative; } 
     .excel-input { width: 100%; min-height: 30px; height: 100%; border: none; padding: 6px 8px; outline: none; font-size: 13px; background: transparent; display: block; font-family: inherit; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: clip; }
     .excel-input:focus { outline: 2px solid #217346; outline-offset: -2px; z-index: 2; position: relative; background: white; }
     .input-row { background-color: #f0fdf4; } 
@@ -26,12 +71,17 @@
     .app-wrapper { display: flex; height: 100vh; width: 100vw; }
     .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; }
     .menu { flex: 1; overflow-y: auto; padding: 20px 0; }
+    
+    /* SCROLLBAR MENU */
+    .menu::-webkit-scrollbar { width: 8px; }
+    .menu::-webkit-scrollbar-track { background: #1b1b29; } 
+    .menu::-webkit-scrollbar-thumb { background: #3f4050; border-radius: 4px; }
+    .menu::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
     .nav-item { padding: 12px 25px; cursor: pointer; display: flex; align-items: center; color: #a2a3b7; transition: 0.2s; }
     .nav-item:hover { color: white; background: rgba(255,255,255,0.03); }
     .nav-item.active { background: #1b1b29; color: var(--accent); border-right: 3px solid var(--accent); }
-    .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); }
     .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
-    .view-area { flex: 1; overflow-y: auto; padding: 30px; }
     /* LOGIN */
     .login-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 2000; display: flex; align-items: center; justify-content: center; }
     .login-card { background: white; padding: 40px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
@@ -49,6 +99,17 @@
     .iframe-container { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; display: flex; flex-direction: column; }
     .iframe-toolbar { height: 45px; background: #333; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
     iframe { flex: 1; width: 100%; border: none; }
+    
+    /* MODAL Y CHIPS */
+    .custom-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; display: flex; align-items: center; justify-content: center; }
+    .custom-modal { background: white; width: 400px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); overflow: hidden; }
+    .custom-modal-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #dee2e6; font-weight: bold; display: flex; justify-content: space-between; }
+    .custom-modal-body { padding: 20px; }
+    .custom-modal-footer { padding: 15px; background: #f8f9fa; border-top: 1px solid #dee2e6; text-align: right; }
+    
+    .chip-select { cursor: pointer; padding: 6px 12px; border-radius: 20px; background: #f1f3f5; color: #495057; font-size: 11px; margin-right: 5px; margin-bottom: 5px; display: inline-block; border: 1px solid #dee2e6; transition: 0.2s; font-weight: 500; }
+    .chip-select:hover { background: #e9ecef; }
+    .chip-select.active { background: #3699ff; color: white; border-color: #3699ff; box-shadow: 0 2px 5px rgba(54, 153, 255, 0.3); }
   </style>
 </head>
 <body>
@@ -57,7 +118,7 @@
   <div v-if="!isLoggedIn" class="login-overlay">
     <div class="login-card">
       <img src="https://drive.google.com/thumbnail?id=1tmNuwauWNjOhv0JwX6ug9pzvsrBCNX7z&sz=w1000" class="login-logo" alt="Holtmont Logo">
-      <h3 class="fw-bold mb-4 text-dark">HOLTMONT V87</h3>
+      <h3 class="fw-bold mb-4 text-dark">HOLTMONT V111</h3>
       <p class="text-muted mb-4">Acceso Seguro</p>
       <div class="mb-3">
           <input type="text" v-model="loginUser" class="form-control text-center mb-2" placeholder="Usuario">
@@ -102,31 +163,109 @@
         </div>
 
         <div v-if="currentView === 'STAFF_TRACKER'" class="h-100 d-flex flex-column">
-          <div class="d-flex justify-content-between mb-2 p-1 bg-white border rounded">
-            <div><button class="btn btn-light btn-sm border me-2" @click="goBackToDept">Volver</button><span class="small fw-bold text-success"><i class="fas fa-file-excel me-1"></i> {{ staffTracker.name }}</span></div>
-            <div><button class="btn btn-success btn-sm me-1" @click="addNewRow"><i class="fas fa-plus"></i> Fila</button><button class="btn btn-outline-secondary btn-sm" @click="reloadStaffTracker"><i class="fas fa-sync"></i></button></div>
+          <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white border rounded">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light btn-sm border me-2" @click="goBackToDept"><i class="fas fa-arrow-left"></i></button>
+                <span class="small fw-bold text-success me-2"><i class="fas fa-file-excel me-1"></i> {{ staffTracker.name }}</span>
+                <button class="btn btn-primary btn-sm py-0 px-2 me-1" @click="reloadStaffTracker" title="Actualizar Tabla">
+                   <i class="fas fa-sync-alt me-1"></i> Actualizar
+                </button>
+                <button class="btn btn-success btn-sm py-0 px-2" @click="addNewRow" title="Agregar Fila">
+                   <i class="fas fa-plus me-1"></i> Fila
+                </button>
+            </div>
+            <div></div>
           </div>
           <div class="excel-container flex-fill mb-2">
              <div v-if="staffTracker.isLoading" class="text-center p-5 text-muted">Cargando...</div>
              <table v-else class="table-excel">
-                <thead><tr><th class="row-num">#</th><th style="width:40px"><i class="fas fa-save"></i></th>
-                <th v-for="h in staffTracker.headers" :key="h" 
-                    :style="{ 
-                        width: (h.toUpperCase()==='CONCEPTO') ? '1200px' : 
-                               (h.toUpperCase()==='FOLIO' || h.toUpperCase()==='AREA' || h.toUpperCase()==='ALTA') ? '50px' : 
-                               (h.toUpperCase()==='DIAS'||h.toUpperCase()==='RELOJ'||h.toUpperCase().includes('AVANCE')) ? '80px' : 
-                               (h.toUpperCase()==='CLIENTE') ? '200px' :
-                               '120px' 
-                    }">{{h}}</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th class="row-num">#</th>
+                    <th style="width:40px"><i class="fas fa-save"></i></th>
+                    <th v-for="h in staffTracker.headers" :key="h" 
+                        :style="{ 
+                            width: (h.toUpperCase()==='CONCEPTO') ? '1200px' : 
+                                   (h.toUpperCase()==='FOLIO' || h.toUpperCase()==='AREA' || h.toUpperCase()==='ALTA') ? '50px' : 
+                                   (h.toUpperCase()==='DIAS'||h.toUpperCase()==='RELOJ'||h.toUpperCase().includes('AVANCE')||h.toUpperCase()==='CLASIFICACION') ? '40px' : 
+                                   (h.toUpperCase().includes('FECHA')) ? '60px' :
+                                   (h.toUpperCase()==='VENDEDOR') ? '75px' :
+                                   (h.toUpperCase()==='CLIENTE') ? '200px' :
+                                   '120px',
+                            fontSize: (h.toUpperCase()==='DIAS'||h.toUpperCase()==='RELOJ'||h.toUpperCase().includes('AVANCE')||h.toUpperCase()==='CLASIFICACION'||h.toUpperCase().includes('FECHA')||h.toUpperCase()==='VENDEDOR') ? '10px' : '12px',
+                            padding: (h.toUpperCase()==='DIAS'||h.toUpperCase()==='RELOJ'||h.toUpperCase().includes('AVANCE')||h.toUpperCase()==='CLASIFICACION') ? '8px 1px' : '8px 4px',
+                            overflow: 'hidden', textOverflow: 'ellipsis'
+                        }">{{h}}
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                    <tr v-for="(row, i) in staffTracker.data" :key="i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td><td class="text-center" style="background:#f8f9fa"><button class="btn btn-link btn-sm p-0 text-success" @click="saveRow(row)"><i class="fas fa-save"></i></button></td>
                       <td v-for="h in staffTracker.headers" :key="h">
-                         <div v-if="['AREA','ALTA'].includes(h.toUpperCase())" class="text-center fw-bold" style="padding-top:6px">{{ row[h] ? row[h].toString().charAt(0).toUpperCase() : '' }}</div>
+                         <div v-if="['AREA','ALTA'].includes(h.toUpperCase())" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-weight:bold; font-size:12px;">
+                                 {{ row[h] ? row[h].toString().charAt(0).toUpperCase() : '' }}
+                             </div>
+                             <select v-model="row[h]" title="Seleccionar Área" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; display:block; z-index:10; margin:0; padding:0; border:none;">
+                                 <option value="">- -</option>
+                                 <option v-for="(dept, key) in config.departments" :key="key" :value="key">
+                                     {{ dept.label }}
+                                 </option>
+                             </select>
+                         </div>
+                         
+                         <div v-else-if="h.toUpperCase()==='VENDEDOR'" style="position:relative; width:100%; height:100%; background-color:#f0fdf4;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">
+                                 {{ row[h] ? String(row[h]).split(' ')[0] : '' }}
+                             </div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; display:block; z-index:10; margin:0; padding:0; border:none;">
+                                 <option value="">- Asignar -</option>
+                                 <option v-for="s in salesStaff" :key="s" :value="s">{{ s }}</option>
+                             </select>
+                         </div>
+
+                         <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px;">
+                             <div v-if="row[h] && String(row[h]).startsWith('http')" class="d-flex justify-content-center align-items-center gap-1">
+                                 <a :href="row[h]" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" title="Ver Archivo"><i class="fas fa-external-link-alt" style="font-size:10px"></i></a>
+                                 <button class="btn btn-sm btn-light border py-0 px-1 text-muted" title="Reemplazar" @click="openCellUpload(row, h)"><i class="fas fa-sync" style="font-size:9px"></i></button>
+                             </div>
+                             <div v-else>
+                                 <button class="btn btn-sm btn-light border py-0 px-2 text-secondary" @click="openCellUpload(row, h)"><i class="fas fa-cloud-upload-alt"></i></button>
+                             </div>
+                         </div>
+
                          <input v-else-if="h.toUpperCase()==='CLIENTE'" v-model="row[h]" class="excel-input" spellcheck="false">
-                         <select v-else-if="h.toUpperCase()==='CLASIFICACION'" v-model="row[h]"><option value="">-</option><option value="A">A (3d)</option><option value="AA">AA (7d)</option><option value="AAA">AAA (30d)</option></select>
-                         <input v-else-if="['DIAS','RELOJ'].includes(h.toUpperCase())" v-model="row[h]" style="text-align:center;font-weight:bold" :style="getTrafficStyle(row)">
-                         <input v-else-if="h.includes('AVANCE')" v-model="row[h]" style="text-align:center; font-weight:bold; color:#217346;">
+                         
+                         <div v-else-if="h.toUpperCase()==='CLASIFICACION'" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:11px; font-weight:bold;">
+                                 {{ row[h] }}
+                             </div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; display:block; z-index:10; margin:0; padding:0; border:none;">
+                                 <option value="">-</option>
+                                 <option value="A">A</option>
+                                 <option value="AA">AA</option>
+                                 <option value="AAA">AAA</option>
+                             </select>
+                         </div>
+                         
+                         <input v-else-if="['DIAS','RELOJ'].includes(h.toUpperCase())" v-model="row[h]" 
+                                style="text-align:center; font-weight:bold; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;" 
+                                :style="getTrafficStyle(row)">
+                         
+                         <input v-else-if="h.includes('AVANCE')" v-model="row[h]" 
+                                style="text-align:center; font-weight:bold; color:#217346; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;">
+                         
+                         <div v-else-if="h.toUpperCase().includes('FECHA')" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:4px; font-size:12px; pointer-events:none; z-index:1;">
+                                 {{ formatDisplayDate(row[h]) }}
+                             </div>
+                             <input type="date" 
+                                    style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; display:block; z-index:10; border:none; margin:0; padding:0;" 
+                                    :value="toIsoDate(row[h])"
+                                    @input="updateDateFromPicker($event, row, h)">
+                         </div>
+
                          <input v-else v-model="row[h]" class="excel-input" spellcheck="false">
                       </td>
                    </tr>
@@ -158,7 +297,7 @@
                            <td><select v-model="ppcData.cumplimiento" class="excel-input" style="background:#f0fdf4"><option value="NO">NO</option><option value="SI">SI</option></select></td>
                            <td class="text-center" style="background:#f0fdf4"><button class="btn-attach" :class="{'has-file': uploadSuccess}" @click="openFileDialog"><i class="fas" :class="uploadSuccess ? 'fa-check' : 'fa-paperclip'"></i></button><input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect"></td>
                            <td><input v-model="ppcData.comentarios" class="excel-input" placeholder="Notas..." style="background:#f0fdf4"></td>
-                           <td class="text-center"><button class="btn btn-primary btn-sm py-0" @click="addToQueue">+</button></td>
+                           <td class="text-center"><button class="btn btn-primary btn-sm py-0" @click="promptExtraData">+</button></td>
                        </tr>
                        <tr v-for="(item, idx) in activityQueue" :key="idx">
                            <td class="row-num">{{ idx + 1 }}</td>
@@ -181,6 +320,53 @@
       <div v-if="['IFRAME', 'MODULE_TABS'].includes(currentView)" class="iframe-container"><div class="iframe-toolbar"><span class="fw-bold">{{ iframeTitle }}</span><button class="btn btn-sm btn-danger" @click="closeIframe">Cerrar</button></div><iframe :src="currentIframeUrl"></iframe></div>
     </main>
   </div>
+
+  <input type="file" ref="cellFileInput" class="file-input-hidden" @change="handleCellFile">
+
+  <div v-if="showExtraModal" class="custom-modal-overlay">
+      <div class="custom-modal">
+          <div class="custom-modal-header">
+              <span>Detalles Adicionales</span>
+              <button type="button" class="btn-close" @click="showExtraModal = false"></button>
+          </div>
+          <div class="custom-modal-body">
+              <div class="mb-2">
+                  <label class="small fw-bold mb-1">Prioridades:</label>
+                  <div>
+                      <span v-for="opt in priorityOpts" :key="opt" 
+                            class="chip-select" 
+                            :class="{active: extraData.prioridades === opt}"
+                            @click="extraData.prioridades = opt">
+                          {{ opt }}
+                      </span>
+                  </div>
+              </div>
+              <div class="mb-2">
+                  <label class="small fw-bold mb-1">Riesgos:</label>
+                  <div>
+                      <span v-for="opt in riskOpts" :key="opt" 
+                            class="chip-select" 
+                            :class="{active: extraData.riesgos === opt}"
+                            @click="extraData.riesgos = opt">
+                          {{ opt }}
+                      </span>
+                  </div>
+              </div>
+              <div class="mb-2">
+                  <label class="small fw-bold">Restricciones:</label>
+                  <input v-model="extraData.restricciones" class="form-control form-control-sm" placeholder="Escribir...">
+              </div>
+              <div class="mb-2">
+                  <label class="small fw-bold">Fecha Respuesta:</label>
+                  <input type="date" v-model="extraData.fechaRespuesta" class="form-control form-control-sm">
+              </div>
+          </div>
+          <div class="custom-modal-footer">
+              <button class="btn btn-primary btn-sm w-100" @click="confirmAddToQueue">Guardar y Agregar</button>
+          </div>
+      </div>
+  </div>
+
 </div>
 
 <script>
@@ -195,6 +381,20 @@
       const selectedResponsables = ref([]); const staffSearch = ref(''); const activityQueue = ref([]); 
       const isUploadingFile = ref(false); const uploadSuccess = ref(false); const fileInput = ref(null);
       const currentModuleId = ref(''); const currentIframeUrl = ref(''); const iframeTitle = ref(''); const showSalesModal = ref(false); const salesData = ref([]); const salesHeaders = ref([]);
+      
+      const showExtraModal = ref(false);
+      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '' });
+      const priorityOpts = ['URGENTE', 'MEDIA', 'BAJA'];
+      const riskOpts = ['ALTO', 'BAJO', 'CATASTROFICO'];
+
+      const cellFileInput = ref(null);
+      const uploadingCell = ref({row:null, col:null});
+
+      const salesStaff = computed(() => {
+          return (config.value.directory || [])
+              .filter(p => p.dept === 'VENTAS' && p.name !== 'TONITA_MX')
+              .map(p => p.name);
+      });
 
       const getTrafficStyle = (row) => {
           const t = String(row['CLASIFICACION']||'').trim().toUpperCase(); const d = parseInt(row['DIAS']||row['RELOJ']||0);
@@ -232,12 +432,76 @@
       };
       const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
       const addNewRow = () => { if(!staffTracker.value.headers.length) return; const row={_isNew:true}; staffTracker.value.headers.forEach(h=>row[h]=""); staffTracker.value.data.unshift(row); };
-      const saveRow = (row) => { Swal.showLoading(); google.script.run.withSuccessHandler(res => { Swal.close(); if(res.success){ row._isNew=false; if(res.moved){ staffTracker.value.data=staffTracker.value.data.filter(r=>r!==row); staffTracker.value.history.unshift(row); } } }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); };
       
+      const saveRow = (row) => { 
+          Swal.showLoading(); 
+          google.script.run.withSuccessHandler(res => { 
+              Swal.close(); 
+              if(res.success){ 
+                  row._isNew=false; 
+                  if(res.moved){ 
+                      reloadStaffTracker();
+                      Swal.fire({icon: 'success', title: 'Completada', text: 'Tarea movida a historial', timer: 1500, showConfirmButton: false});
+                  } else {
+                      Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false});
+                  }
+              } else {
+                  Swal.fire('Error', res.message, 'error');
+              }
+          }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); 
+      };
+      
+      const openCellUpload = (row, col) => {
+          uploadingCell.value = {row, col};
+          cellFileInput.value.click();
+      };
+      
+      const handleCellFile = (e) => {
+          const file = e.target.files[0];
+          if(!file || !uploadingCell.value.row) return;
+          
+          Swal.showLoading();
+          const r = new FileReader();
+          r.onload = (ev) => {
+              google.script.run.withSuccessHandler(res => {
+                  if(res.success){
+                      uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl;
+                      saveRow(uploadingCell.value.row);
+                  } else {
+                      Swal.fire('Error al subir', res.message, 'error');
+                  }
+                  e.target.value = null;
+              }).uploadFileToDrive(ev.target.result, file.type, file.name);
+          };
+          r.readAsDataURL(file);
+      };
+
       const addResponsable = (n) => { selectedResponsables.value.push(n); staffSearch.value=''; };
       const openFileDialog = () => fileInput.value.click();
       const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true;ppcData.value.archivoUrl=res.fileUrl;}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
-      const addToQueue = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.cliente=''; ppcData.value.horas=''; selectedResponsables.value=[]; uploadSuccess.value=false; };
+      
+      const promptExtraData = () => {
+          if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning');
+          extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '' };
+          showExtraModal.value = true;
+      };
+
+      const confirmAddToQueue = () => {
+          const item = JSON.parse(JSON.stringify(ppcData.value));
+          item.responsable = selectedResponsables.value.join(',');
+          item.restricciones = extraData.value.restricciones;
+          item.prioridades = extraData.value.prioridades;
+          item.riesgos = extraData.value.riesgos;
+          let fResp = extraData.value.fechaRespuesta;
+          if(fResp) {
+             const parts = fResp.split('-');
+             if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+          }
+          item.fechaRespuesta = fResp;
+          activityQueue.value.push(item);
+          ppcData.value.concepto=''; ppcData.value.cliente=''; ppcData.value.horas=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false;
+      };
+
       const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); activityQueue.value=[]; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
       
       const fetchSalesData = () => google.script.run.withSuccessHandler(res => { if(res.success) { salesData.value = res.data; salesHeaders.value = res.headers; } }).apiFetchSalesData();
@@ -245,7 +509,42 @@
       const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
       const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
 
-      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle: (r)=>trafficStyleObj(getTrafficStyle(r)), ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, addToQueue, activityQueue, submitBatch, currentDeptData, pageTitle: computed(() => currentView.value), openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, salesData, salesHeaders, showSalesModal, fetchSalesData };
+      const toIsoDate = (val) => {
+          if (!val) return '';
+          const parts = String(val).split('/');
+          if (parts.length === 3) {
+              let y = parts[2];
+              if (y.length === 2) y = '20' + y;
+              return `${y}-${parts[1]}-${parts[0]}`;
+          }
+          return '';
+      };
+
+      const formatDisplayDate = (val) => {
+          if(!val) return '';
+          if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val;
+          if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+              return val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
+          }
+          return val;
+      };
+
+      const updateDateFromPicker = (e, row, h) => {
+          const val = e.target.value; 
+          if (!val) { row[h] = ''; return; }
+          const parts = val.split('-');
+          if (parts.length === 3) {
+              row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+          }
+      };
+
+      // CORRECCIÓN V108: AGREGADO 'TIMELINE' A LA LISTA DE DETECCIÓN
+      const isMediaColumn = (h) => {
+          const check = ['F2','COTIZACION','COT','COTIZACIÓN','TIMEOUT','TIME OUT','LAYOUT','TIMELINE'];
+          return check.includes(h.toUpperCase());
+      };
+
+      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle: (r)=>trafficStyleObj(getTrafficStyle(r)), ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, addToQueue: promptExtraData, confirmAddToQueue, activityQueue, submitBatch, currentDeptData, pageTitle: computed(() => currentView.value), openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, salesData, salesHeaders, showSalesModal, fetchSalesData, showExtraModal, extraData, promptExtraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn };
     }
   }).mount('#app');
 </script>
