@@ -16,13 +16,15 @@ const APP_CONFIG = {
 const USER_DB = {
   "LUIS_CARLOS":    { pass: "admin2025", role: "ADMIN", label: "Administrador" },
   "JESUS_GARZA":    { pass: "ppc2025",   role: "PPC_ADMIN", label: "PPC Manager" },
-  "TONITA_MX":      { pass: "tonita2025", role: "TONITA", label: "Ventas" }
+  "ANTONIA_VENTAS": { pass: "tonita2025", role: "TONITA", label: "Ventas" },
+  "JAIME_OLIVO":    { pass: "admin2025", role: "ADMIN_CONTROL", label: "Jaime Olivo" },
+  "ANGEL_SALINAS":  { pass: "angel2025", role: "ANGEL_USER", label: "Angel Salinas" }
 };
 /* SERVICIO HTML */
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Holtmont Workspace V111')
+    .setTitle('Holtmont Workspace')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -45,7 +47,7 @@ function findHeaderRow(values) {
     const rowStr = values[i].map(c => String(c).toUpperCase().trim()).join("|");
     if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO") && (rowStr.includes("ALTA") || rowStr.includes("AVANCE"))) return i;
     if (rowStr.includes("CLIENTE") && (rowStr.includes("VENDEDOR") || rowStr.includes("AREA"))) return i;
-  }
+}
   return -1;
 }
 
@@ -57,7 +59,8 @@ function logSystemEvent(user, action, details) {
       sheet.appendRow(["FECHA", "USUARIO", "ACCION", "DETALLES"]);
     }
     sheet.appendRow([new Date(), user, action, details]);
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e);
+}
 }
 
 /* LOGIN */
@@ -75,7 +78,7 @@ function apiLogin(username, password) {
 function getSystemConfig(role) {
   const fullDirectory = [
     // VENTAS
-    { name: "TONITA_MX", dept: "VENTAS" }, 
+    { name: "ANTONIA_VENTAS", dept: "VENTAS" }, 
     { name: "JUDITH ECHAVARRIA", dept: "VENTAS" },
     { name: "EDUARDO MANZANARES", dept: "VENTAS" },
     { name: "RAMIRO RODRIGUEZ", dept: "VENTAS" },
@@ -98,6 +101,7 @@ function getSystemConfig(role) {
     { name: "DANIELA CASTRO", dept: "ADMINISTRACION" },
     { name: "EDUARDO BENITEZ", dept: "ADMINISTRACION" },
     { name: "ANTONIO CABRERA", dept: "ADMINISTRACION" },
+    { name: "ADMINISTRADOR", dept: "ADMINISTRACION" }, 
 
     // HVAC
     { name: "EDUARDO MANZANARES", dept: "HVAC" },
@@ -143,15 +147,16 @@ function getSystemConfig(role) {
 
     // DISEÑO
     { name: "ANGEL SALINAS", dept: "DISEÑO" },
-    { name: "EDGAR HOLT", dept: "DISEÑO" }
+    { name: "EDGAR HOLT", dept: "DISEÑO" },
+    { name: "EDGAR LOPEZ", dept: "DISEÑO" }
   ];
-  
   // --- PALETA DE COLORES (SIDEBAR + DASHBOARD) ---
   const allDepts = {
       "CONSTRUCCION": { label: "Construcción", icon: "fa-hard-hat", color: "#e83e8c" },     // ROSA
       "COMPRAS": { label: "Compras/Almacén", icon: "fa-shopping-cart", color: "#198754" },   // VERDE
       "EHS": { label: "Seguridad (EHS)", icon: "fa-shield-alt", color: "#dc3545" },          // ROJO
       "DISEÑO": { label: "Diseño & Ing.", icon: "fa-drafting-compass", color: "#0d6efd" },   // AZUL
+   
       "ELECTROMECANICA": { label: "Electromecánica", icon: "fa-bolt", color: "#ffc107" },    // AMARILLO
       "HVAC": { label: "HVAC", icon: "fa-fan", color: "#fd7e14" },                           // NARANJA
       
@@ -160,34 +165,67 @@ function getSystemConfig(role) {
       "VENTAS": { label: "Ventas", icon: "fa-handshake", color: "#0dcaf0" },                 // CIAN
       "MAQUINARIA": { label: "Maquinaria", icon: "fa-truck", color: "#20c997" }              // TURQUESA
   };
-
   if (role === 'TONITA') {
     return {
-      departments: { "VENTAS": allDepts["VENTAS"] },
-      staff: [ { name: "TONITA_MX", dept: "VENTAS" } ],
+      departments: { "VENTAS": allDepts["VENTAS"] }, 
+      allDepartments: allDepts, 
+      staff: [ { name: "ANTONIA_VENTAS", dept: "VENTAS" } ],
       directory: fullDirectory,
       specialModules: [] 
     };
   }
 
+  // --- VISTA JESUS GARZA (SOLO PPC MAESTRO) ---
   if (role === 'PPC_ADMIN') {
     return {
-      departments: allDepts,
+      departments: {}, // <--- SE ELIMINARON LOS DEPARTAMENTOS
+      allDepartments: allDepts,
       staff: [],
       directory: fullDirectory,
       specialModules: [{ id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" }]
     };
   }
 
-  // VISTA ADMIN
+  // --- VISTA EXCLUSIVA JAIME OLIVO ---
+  if (role === 'ADMIN_CONTROL') {
+    return {
+      departments: allDepts,
+      allDepartments: allDepts,
+      staff: fullDirectory,
+      directory: fullDirectory,
+      specialModules: [
+        { id: "PPC_DINAMICO", label: "Tracker", icon: "fa-layer-group", color: "#e83e8c", type: "ppc_dynamic_view" },
+        { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" },
+        { id: "ADMIN_TRACKER", label: "Control", icon: "fa-clipboard-list", color: "#6f42c1", type: "mirror_staff", target: "ADMINISTRADOR" }
+      ]
+    };
+  }
+
+  // --- VISTA ANGEL SALINAS ---
+  if (role === 'ANGEL_USER') {
+    return {
+      departments: {
+          "DISEÑO": allDepts["DISEÑO"],
+          "VENTAS": allDepts["VENTAS"]
+      },
+      allDepartments: allDepts,
+      staff: [ { name: "ANGEL SALINAS", dept: "DISEÑO" } ],
+      directory: fullDirectory,
+      specialModules: [
+          { id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#0d6efd", type: "mirror_staff", target: "ANGEL SALINAS" }
+      ]
+    };
+  }
+
+  // VISTA ADMIN (LUIS CARLOS)
   return {
     departments: allDepts,
+    allDepartments: allDepts,
     staff: fullDirectory,
     directory: fullDirectory,
     specialModules: [
       { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" },
-      { id: "SALES_MASTER", label: "Control Ventas", icon: "fa-chart-line", color: "#0dcaf0", type: "sales_native" },
-      { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "TONITA_MX" }
+      { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" } 
     ]
   };
 }
@@ -233,7 +271,8 @@ function apiFetchStaffTrackerData(personName) {
            if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
            else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
         }
-        if (val !== "" && val !== undefined) hasData = true;
+        if (val !== "" && val !== undefined) 
+           hasData = true;
         rowObj[headerName] = val;
       });
       if (hasData) {
@@ -248,7 +287,8 @@ function apiFetchStaffTrackerData(personName) {
       return dB - dA;
     };
     return { success: true, data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), headers: cleanHeaders };
-  } catch (e) { return { success: false, message: e.toString() }; }
+  } catch (e) { return { success: false, message: e.toString() };
+  }
 }
 
 function internalUpdateTask(personName, taskData) {
@@ -271,7 +311,8 @@ function internalUpdateTask(personName, taskData) {
         'AVANCE': ['AVANCE', 'AVANCE %'],
         'RESTRICCIONES': ['RESTRICCIONES', 'REST.'],
         'RIESGOS': ['RIESGOS'],
-        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'HORA ESTIMADA DE FIN', 'FECHA ESTIMADA DE FIN'],
+        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'HORA ESTIMADA DE FIN', 'FECHA ESTIMADA DE FIN', 'FEC. EST. FIN'],
+        'HORA_ESTIMADA': ['HORA ESTIMADA DE FIN', 'HR. EST. FIN'],
         'F2': ['F2'], 'COTIZACION': ['COTIZACION', 'COT', 'COTIZACIÓN'], 'TIMEOUT': ['TIMEOUT', 'TIME OUT'], 'LAYOUT': ['LAYOUT'], 'TIMELINE': ['TIMELINE']
       };
       const getTargetColIdx = (key) => {
@@ -290,7 +331,8 @@ function internalUpdateTask(personName, taskData) {
       };
 
       let targetRow = -1;
-      if (taskData['_rowIndex']) { targetRow = parseInt(taskData['_rowIndex']); } 
+      if (taskData['_rowIndex']) { targetRow = parseInt(taskData['_rowIndex']);
+      } 
       else {
           for (let i = headerRowIndex + 1; i < values.length; i++) {
             if (values[i].join("|").toUpperCase().includes("TAREAS REALIZADAS")) break;
@@ -298,20 +340,26 @@ function internalUpdateTask(personName, taskData) {
             const rowValConcepto = conceptoIndex > -1 ? String(values[i][conceptoIndex]).trim().toUpperCase() : "";
             const inFolio = String(taskData['FOLIO']||"").trim().toUpperCase();
             const inConcepto = String(taskData['CONCEPTO']||"").trim().toUpperCase();
-            if (inFolio && inFolio === rowValFolio) { targetRow = i + 1; break; }
-            else if (inConcepto && inConcepto === rowValConcepto) { targetRow = i + 1; break; }
+            if (inFolio && inFolio === rowValFolio) { targetRow = i + 1;
+            break; }
+            else if (inConcepto && inConcepto === rowValConcepto) { targetRow = i + 1;
+            break; }
           }
       }
 
       let isCompleted = false;
       const avanceKey = Object.keys(taskData).find(k => k.toUpperCase().includes("AVANCE"));
-      if (avanceKey) { const val = String(taskData[avanceKey]).trim().replace('%', ''); if (val === "100" || val === "1" || val === "1.0") isCompleted = true; }
+      if (avanceKey) { const val = String(taskData[avanceKey]).trim().replace('%', '');
+      if (val === "100" || val === "1" || val === "1.0") isCompleted = true;
+      }
 
       let result = { success: true, message: "Guardado" };
       if (isCompleted) {
         let rowValues;
-        if (targetRow !== -1 && targetRow <= sheet.getLastRow()) { rowValues = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0]; } 
-        else { rowValues = new Array(sheet.getLastColumn()).fill(""); }
+        if (targetRow !== -1 && targetRow <= sheet.getLastRow()) { rowValues = sheet.getRange(targetRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+        } 
+        else { rowValues = new Array(sheet.getLastColumn()).fill("");
+        }
         for (const key in taskData) {
            if (key.startsWith('_')) continue;
            const colIdx = getTargetColIdx(key);
@@ -319,10 +367,13 @@ function internalUpdateTask(personName, taskData) {
         }
         let historyIdx = -1;
         const allData = sheet.getDataRange().getValues();
-        for(let r=0; r<allData.length; r++) { if(allData[r].join("|").toUpperCase().includes("TAREAS REALIZADAS")) { historyIdx = r+1; break; } }
-        if (historyIdx === -1) { sheet.appendRow(["", "", "TAREAS REALIZADAS"]); sheet.appendRow(values[headerRowIndex]); }
+        for(let r=0; r<allData.length; r++) { if(allData[r].join("|").toUpperCase().includes("TAREAS REALIZADAS")) { historyIdx = r+1; break;
+        } }
+        if (historyIdx === -1) { sheet.appendRow(["", "", "TAREAS REALIZADAS"]); sheet.appendRow(values[headerRowIndex]);
+        }
         sheet.appendRow(rowValues);
-        if (targetRow !== -1 && targetRow <= sheet.getLastRow()) { sheet.deleteRow(targetRow); }
+        if (targetRow !== -1 && targetRow <= sheet.getLastRow()) { sheet.deleteRow(targetRow);
+        }
         logSystemEvent(personName, "COMPLETE", `Archivado: ${taskData['CONCEPTO']}`);
         result = { success: true, message: "Tarea completada y movida.", moved: true };
       } 
@@ -342,24 +393,29 @@ function internalUpdateTask(personName, taskData) {
               if (k.toUpperCase() === h) return true;
               for (const std in COL_MAP) { if (COL_MAP[std].includes(k.toUpperCase()) && COL_MAP[std].includes(h)) return true; }
               return false;
+          
            });
            return dataKey ? taskData[dataKey] : "";
         });
         sheet.insertRowAfter(headerRowIndex + 1);
         sheet.getRange(headerRowIndex + 2, 1, 1, newRow.length).setValues([newRow]);
         logSystemEvent(personName, "CREATE", `Nuevo: ${taskData['CONCEPTO']}`);
-        result = { success: true, message: "Creado." };
+        result = { success: true, message: "Creado."
+        };
       }
-      if (personName === "TONITA_MX") {
+      if (personName === "ANTONIA_VENTAS") {
           const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase() === "VENDEDOR");
+          const distData = JSON.parse(JSON.stringify(taskData));
+          delete distData._rowIndex; 
           if (vendedorKey) {
               const vendedorName = taskData[vendedorKey];
               if (vendedorName && typeof vendedorName === 'string' && vendedorName.trim().length > 0) {
-                  const distData = JSON.parse(JSON.stringify(taskData));
-                  delete distData._rowIndex; 
                   internalUpdateTask(vendedorName, distData);
               }
           }
+          try {
+             internalUpdateTask("ADMINISTRADOR", distData);
+          } catch(e) { console.warn("Error replicando a ADMINISTRADOR: " + e); }
       }
       return result;
     } catch(e) { return { success: false, message: e.toString() }; }
@@ -367,7 +423,8 @@ function internalUpdateTask(personName, taskData) {
 
 function apiUpdateTask(personName, taskData) {
   const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) { try { return internalUpdateTask(personName, taskData); } finally { lock.releaseLock(); } }
+  if (lock.tryLock(5000)) { try { return internalUpdateTask(personName, taskData); } finally { lock.releaseLock();
+  } }
   return { success: false, message: "Ocupado." };
 }
 
@@ -377,28 +434,34 @@ function apiSavePPCData(payload) {
     try {
       const items = Array.isArray(payload) ? payload : [payload];
       let sheet = findSheetSmart(APP_CONFIG.ppcSheetName);
-      if (!sheet) { sheet = SS.insertSheet(APP_CONFIG.ppcSheetName); sheet.appendRow(["ID", "Especialidad", "Descripción", "Responsable", "Fecha", "Reloj", "Cumplimiento"]); }
+      if (!sheet) { sheet = SS.insertSheet(APP_CONFIG.ppcSheetName); sheet.appendRow(["ID", "Especialidad", "Descripción", "Responsable", "Fecha", "Reloj", "Cumplimiento"]);
+      }
       const fechaHoy = new Date();
       const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
       items.forEach(item => {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           sheet.appendRow([id, item.especialidad, item.concepto, item.responsable, fechaHoy, item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""]);
-          const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
-          responsables.forEach(personName => {
-            try {
-              const taskData = {
+          const taskData = {
                  'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media",
                  'ALTA': item.especialidad, 'INVOLUCRADOS': item.responsable, 'FECHA': fechaStr,
                  'RELOJ': item.horas, 'ESTATUS': "ASIGNADO", 'PRIORIDAD': item.prioridad, 
                  'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 
                  'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%"
-              };
-              internalUpdateTask(personName, taskData); 
+          };
+          const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
+          responsables.forEach(personName => {
+            try {
+              internalUpdateTask(personName, taskData);
             } catch(err) { console.warn(err); }
           });
+          // ENVIAR AL TRACKER DE ACTIVIDADES DIARIAS (ADMINISTRADOR)
+          try {
+             internalUpdateTask("ADMINISTRADOR", taskData);
+          } catch(err) { console.warn("Error replicando PPC a ADMINISTRADOR: " + err); }
       });
       return { success: true, message: "Procesado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
+    } catch (e) { return { success: false, message: e.toString() };
+    } finally { lock.releaseLock(); }
   }
   return { success: false, message: "Ocupado." };
 }
@@ -407,13 +470,16 @@ function uploadFileToDrive(data, type, name) {
   try {
     const folderId = APP_CONFIG.folderIdUploads;
     let folder;
-    if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder(); } } 
-    else { folder = DriveApp.getRootFolder(); }
+    if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder();
+    } } 
+    else { folder = DriveApp.getRootFolder();
+    }
     const blob = Utilities.newBlob(Utilities.base64Decode(data.split(',')[1]), type, name);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return { success: true, fileUrl: file.getUrl() };
-  } catch (e) { return { success: false, message: e.toString() }; }
+  } catch (e) { return { success: false, message: e.toString() };
+  }
 }
 
 function apiFetchPPCData() { try { const s = findSheetSmart(APP_CONFIG.ppcSheetName); if(!s) return {success:true,data:[]}; const d = s.getRange(Math.max(2, s.getLastRow()-200),1,s.getLastRow(),10).getValues();
