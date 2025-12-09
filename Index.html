@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V111</title>
+  <title>Holtmont V126</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -11,10 +11,10 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
-    :root { --sidebar-w: 260px; --primary: #1c1c1c; --accent: #3699ff; --bg-body: #f3f6f9; }
+    :root { --sidebar-w: 260px; --sidebar-mini: 65px; --primary: #1c1c1c; --accent: #3699ff; --bg-body: #f3f6f9; }
     body { font-family: 'Roboto', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; font-size: 13px; }
     
-    .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); overflow: hidden; position: relative; }
+    .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); overflow: hidden; position: relative; transition: margin-left 0.3s; }
     .view-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 20px; width: 100%; box-sizing: border-box; }
 
     /* TABLA EXCEL GENÉRICA */
@@ -47,15 +47,35 @@
     .input-row { background-color: #f8f9fa; border-bottom: 2px solid #107c41; } 
     .row-num { background-color: #e6e6e6; text-align: center; color: #333; font-weight: bold; width: 40px; border-right: 3px solid #ccc !important; }
 
-    /* --- ESTILOS ULTRA COMPACTOS (MINI DASHBOARD) --- */
-    .mini-table { width: auto !important; min-width: 0 !important; }
+    /* --- ESTILOS ULTRA COMPACTOS (MINI DASHBOARD) - VISIBLE SIN SCROLL --- */
+    .mini-table { 
+        width: auto !important; 
+        min-width: 0 !important; 
+        border: none;
+    }
     .mini-table th { 
-        padding: 1px 2px; font-size: 9px; height: 18px; line-height: 1; border-bottom: 2px solid #999; 
+        padding: 5px 6px; 
+        font-size: 11px; /* Letra legible */
+        height: auto; 
+        line-height: 1.2; 
+        border: 1px solid #999;
+        text-align: center;
+        white-space: nowrap;
+        background-color: #e6e6e6;
     }
     .mini-table td { 
-        height: 18px; font-size: 9px; padding: 0 2px; line-height: 18px; 
+        height: auto; 
+        font-size: 11px; /* Letra legible */
+        padding: 4px 6px; 
+        line-height: 1.2;
+        border: 1px solid #ccc;
     }
-    .mini-table .total-row td { background-color: #333; color: white; font-weight: bold; border-color: #555 !important; }
+    .mini-table .total-row td { 
+        background-color: #333; 
+        color: white; 
+        font-weight: bold; 
+        border-top: 2px solid #555 !important;
+    }
 
     /* --- ESTILOS PPC DINÁMICO (WHITE MODE / CLEAN) --- */
     .dynamic-tracker { 
@@ -69,7 +89,6 @@
         border-radius: 8px; 
         padding: 25px; 
         box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-        /* CENTRADO DE LA TARJETA */
         max-width: 960px; 
         width: 100%;
         margin: 0 auto;
@@ -99,7 +118,7 @@
         letter-spacing: 0.5px; 
     }
     
-    /* Chips para Dinamico (Tema Claro) */
+    /* Chips para Dinamico */
     .chip-option { 
         cursor: pointer; 
         padding: 6px 14px; 
@@ -121,16 +140,81 @@
         box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3); 
     }
 
-    /* LAYOUT GENERAL */
+    /* LAYOUT & SIDEBAR INTELIGENTE */
     .app-wrapper { display: flex; height: 100vh; width: 100vw; }
-    .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; }
-    .menu { flex: 1; overflow-y: auto; padding: 20px 0; }
-    .menu::-webkit-scrollbar { width: 8px; }
-    .menu::-webkit-scrollbar-track { background: #1b1b29; } 
+    
+    .sidebar { 
+        width: var(--sidebar-w); 
+        background: var(--primary); 
+        color: #a2a3b7; 
+        display: flex; 
+        flex-direction: column; 
+        transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        position: relative;
+        z-index: 1050;
+        white-space: nowrap;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    /* MODO COMPACTO */
+    .sidebar.compact { 
+        width: var(--sidebar-mini); 
+    }
+    
+    /* EXPANSION AL PASAR EL MOUSE (OVERLAY) */
+    .sidebar.compact:hover {
+        width: var(--sidebar-w);
+        box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+    }
+
+    .brand {
+        height: 70px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-weight: bold;
+        color: white;
+        justify-content: space-between;
+    }
+    
+    .menu { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 0; }
+    .menu::-webkit-scrollbar { width: 4px; }
+    .menu::-webkit-scrollbar-track { background: transparent; } 
     .menu::-webkit-scrollbar-thumb { background: #3f4050; border-radius: 4px; }
-    .nav-item { padding: 12px 25px; cursor: pointer; display: flex; align-items: center; color: #a2a3b7; transition: 0.2s; }
+
+    .nav-item { 
+        padding: 12px 20px; 
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        color: #a2a3b7; 
+        transition: 0.2s; 
+        height: 45px;
+    }
     .nav-item:hover { color: white; background: rgba(255,255,255,0.03); }
     .nav-item.active { background: #1b1b29; color: var(--accent); } 
+    
+    .nav-icon-col { width: 25px; text-align: center; margin-right: 15px; display: flex; justify-content: center; }
+    .nav-text { transition: opacity 0.2s; opacity: 1; }
+    
+    /* Ocultar texto en modo compacto (si no hay hover) */
+    .sidebar.compact:not(:hover) .nav-text, 
+    .sidebar.compact:not(:hover) .brand-text,
+    .sidebar.compact:not(:hover) .section-title {
+        opacity: 0;
+        pointer-events: none;
+        display: none; 
+    }
+    
+    /* Ajuste de iconos en modo compacto */
+    .sidebar.compact:not(:hover) .nav-item { padding: 12px 0; justify-content: center; }
+    .sidebar.compact:not(:hover) .nav-icon-col { margin-right: 0; }
+    .sidebar.compact:not(:hover) .brand { justify-content: center; padding: 0; }
+    .sidebar.compact:not(:hover) .btn-toggle-sidebar { margin: 0; }
+
+    .section-title { padding: 15px 20px 5px; font-size: 0.7rem; color: #555; font-weight: bold; white-space: nowrap; }
+
     .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
     
     /* COMPONENTES */
@@ -183,32 +267,43 @@
   </div>
 
   <div v-if="isLoggedIn" class="app-wrapper">
-    <aside class="sidebar">
-      <div class="brand p-3 fw-bold text-white"><i class="fas fa-table me-2 text-primary"></i> HOLTMONT</div>
+    <aside class="sidebar" :class="{ compact: isCompact }">
+      <div class="brand">
+          <span class="brand-text"><i class="fas fa-table me-2 text-primary"></i> HOLTMONT</span>
+          <button class="btn btn-sm btn-link text-secondary btn-toggle-sidebar" @click="toggleSidebar" title="Contraer/Expandir Menú">
+              <i class="fas fa-bars"></i>
+          </button>
+      </div>
       <div class="menu">
-        <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome"><i class="fas fa-th me-2"></i> Dashboard</div>
+        <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome">
+            <div class="nav-icon-col"><i class="fas fa-th"></i></div>
+            <span class="nav-text">Dashboard</span>
+        </div>
         
         <div v-if="config.specialModules.length">
-            <div style="padding:15px 20px 5px;font-size:0.7rem;color:#888;font-weight:bold">ACCIONES</div>
+            <div class="section-title">ACCIONES</div>
             <div class="nav-item" v-for="m in config.specialModules" @click="openModule(m)" :class="{ active: currentModuleId === m.id }" :style="{ borderRight: currentModuleId === m.id ? '3px solid ' + m.color : '3px solid transparent' }">
-                <i class="fas me-2" :class="m.icon" :style="{color: m.color}"></i>
-                <span :style="{ color: currentModuleId === m.id ? 'white' : '#a2a3b7' }">{{m.label}}</span>
+                <div class="nav-icon-col"><i class="fas" :class="m.icon" :style="{color: m.color}"></i></div>
+                <span class="nav-text" :style="{ color: currentModuleId === m.id ? 'white' : '#a2a3b7' }">{{m.label}}</span>
             </div>
         </div>
 
         <div v-if="Object.keys(config.departments).length">
-            <div style="padding:15px 20px 5px;font-size:0.7rem;color:#888;font-weight:bold">ÁREAS</div>
+            <div class="section-title">ÁREAS</div>
             <div class="nav-item" v-for="(d,k) in config.departments" @click="selectDept(k)" :class="{ active: currentDept === k }" :style="{ borderRight: currentDept === k ? '3px solid ' + d.color : '3px solid transparent' }">
-                <i class="fas me-2" :class="d.icon" :style="{ color: d.color }"></i>
-                <span :style="{ color: currentDept === k ? 'white' : '#a2a3b7' }">{{d.label}}</span>
+                <div class="nav-icon-col"><i class="fas" :class="d.icon" :style="{ color: d.color }"></i></div>
+                <span class="nav-text" :style="{ color: currentDept === k ? 'white' : '#a2a3b7' }">{{d.label}}</span>
             </div>
         </div>
 
         <div class="mt-auto">
             <div class="p-3">
-                <button class="btn btn-outline-secondary w-100 btn-sm" @click="logout">Salir</button>
+                <button class="btn btn-outline-secondary w-100 btn-sm" @click="logout" :title="isCompact ? 'Salir' : ''">
+                    <i class="fas fa-sign-out-alt" v-if="isCompact"></i>
+                    <span v-else>Salir</span>
+                </button>
             </div>
-            <div class="text-center pb-4 mb-2">
+            <div class="text-center pb-4 mb-2" v-if="!isCompact">
                 <img src="https://lh3.googleusercontent.com/d/1tmNuwauWNjOhv0JwX6ug9pzvsrBCNX7z" alt="Logo Footer" style="max-width: 100px; height:auto; opacity: 0.5; filter: grayscale(100%) invert(1);">
             </div>
         </div>
@@ -286,13 +381,16 @@
                              <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">{{ row[h] ? String(row[h]).split(' ')[0] : '' }}</div>
                              <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="s in salesStaff" :key="s" :value="s">{{s}}</option></select>
                          </div>
-                         <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px;">
-                             <div v-if="row[h] && String(row[h]).startsWith('http')" class="d-flex justify-content-center align-items-center gap-1">
-                                 <a :href="row[h]" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1"><i class="fas fa-external-link-alt" style="font-size:10px"></i></a>
-                                 <button class="btn btn-sm btn-light border py-0 px-1 text-muted" @click="openCellUpload(row, h)"><i class="fas fa-sync" style="font-size:9px"></i></button>
-                             </div>
-                             <div v-else><button class="btn btn-sm btn-light border py-0 px-2 text-secondary" @click="openCellUpload(row, h)"><i class="fas fa-cloud-upload-alt"></i></button></div>
+                         
+                         <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px; display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; height:100%;">
+                             <template v-if="row[h]">
+                                 <a v-for="(url, uIdx) in String(row[h]).split(/[\n\s]+/).filter(u => u.startsWith('http'))" :key="uIdx" :href="url" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:9px; margin-right:1px;" title="Ver archivo">
+                                    <i class="fas fa-paperclip"></i>
+                                 </a>
+                             </template>
+                             <button class="btn btn-sm btn-light border py-0 px-1 text-secondary" @click="openCellUpload(row, h)" title="Subir archivo"><i class="fas fa-cloud-upload-alt" style="font-size:10px"></i></button>
                          </div>
+
                          <div v-else-if="isCol(h, ['CLASIFICACION'])" style="position:relative; width:100%; height:100%;">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:10px; font-weight:bold;">{{ row[h] }}</div>
                              <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option></select>
@@ -399,6 +497,54 @@
              </div>
           </div>
         </div>
+        
+        <div v-if="currentView === 'WEEKLY_PLAN'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
+           <div class="d-flex justify-content-between align-items-center mb-3">
+               <h5 class="m-0" style="color:#6f42c1"><i class="fas fa-calendar-alt me-2"></i>Historial Semanal</h5>
+               <button class="btn btn-light border" @click="goHome">Cerrar</button>
+           </div>
+           
+           <div class="excel-container flex-fill">
+               <div class="sticky-top bg-light border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
+                   <span class="fw-bold text-muted">REGISTRO DE ACTIVIDADES</span>
+                   <span class="badge bg-secondary">{{ ppcExistingData.length }} registros</span>
+               </div>
+               <table class="table-excel">
+                   <thead>
+                       <tr>
+                           <th style="width:50px">SEM</th>
+                           <th style="width:80px">FECHA</th>
+                           <th style="width:100px">DEPTO</th>
+                           <th style="min-width:300px">DESCRIPCIÓN</th>
+                           <th style="width:150px">RESPONSABLE</th>
+                           <th style="width:50px">RELOJ</th>
+                           <th style="width:50px">CUMP</th>
+                           <th style="width:40px">CLIP</th>
+                           <th style="min-width:150px">COMENTARIOS</th>
+                           <th style="min-width:150px">PREVIOS</th>
+                       </tr>
+                   </thead>
+                   <tbody>
+                       <tr v-for="(row, i) in ppcExistingData" :key="row.id">
+                           <td class="text-center fw-bold text-muted">{{ getWeekNumber(row.fechaAlta) }}</td>
+                           <td class="text-center">{{ formatDisplayDate(row.fechaAlta) }}</td>
+                           <td style="font-size:11px">{{ row.especialidad }}</td>
+                           <td>{{ row.concepto }}</td>
+                           <td style="font-size:11px">{{ row.responsable }}</td>
+                           <td class="text-center">{{ row.horas }}</td>
+                           <td class="text-center fw-bold" :class="{'text-success': row.cumplimiento === 'SI', 'text-danger': row.cumplimiento === 'NO'}">
+                               {{ row.cumplimiento }}
+                           </td>
+                           <td class="text-center">
+                               <a v-if="row.archivoUrl" :href="row.archivoUrl" target="_blank" class="text-primary"><i class="fas fa-paperclip"></i></a>
+                           </td>
+                           <td style="font-size:11px">{{ row.comentarios }}</td>
+                           <td style="font-size:11px">{{ row.comentariosPrevios }}</td>
+                       </tr>
+                   </tbody>
+               </table>
+           </div>
+        </div>
 
         <div v-if="currentView === 'PPC_FORM'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
            <div class="d-flex justify-content-between align-items-center mb-3">
@@ -407,24 +553,24 @@
            </div>
 
            <div class="d-flex mb-3 align-items-end justify-content-center position-relative" style="min-height: 90px;">
-               <div style="position: absolute; left: 0; bottom: 0; height: 90px; border: none; background: transparent; overflow: hidden; z-index: 0;">
-                    <img src="https://drive.google.com/thumbnail?id=1hJ8lTZ9nHRueCjwHMGrb5mm5EQucJ0ia&sz=w1000" style="width: auto; height: 100%; object-fit: contain; object-position: left bottom;" alt="Logo PPC">
+               <div style="position: absolute; left: 0; bottom: 0; height: 300px; border: none; background: transparent; overflow: hidden; z-index: 0; max-width: 500px;">
+                    <img src="https://drive.google.com/thumbnail?id=13qDi95Fkfj7NMv5bvj1qs3xcoAd6r1BD" style="width: 100%; height: 100%; object-fit: contain; object-position: left bottom;" alt="Logo PPC">
                </div>
 
-               <div class="excel-container" style="max-height: 150px; flex:none; width: fit-content; z-index: 1;">
-                   <table class="table-excel mini-table"> 
+               <div class="excel-container" style="height: auto; max-height: none; overflow: visible; flex:none; width: fit-content; z-index: 1; border:none; box-shadow:none; background: transparent;">
+                   <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
                        <thead>
                            <tr>
-                               <th style="width:90px">ESPECIALIDAD</th>
-                               <th style="width:35px">ACT</th>
-                               <th style="width:35px">CUMP</th>
-                               <th style="width:35px">PROM</th>
-                               <th style="width:35px">ANT</th>
+                               <th style="width:100px">ESPECIALIDAD</th>
+                               <th style="width:40px">ACT</th>
+                               <th style="width:40px">CUMP</th>
+                               <th style="width:45px">PROM</th>
+                               <th style="width:40px">ANT</th>
                            </tr>
                        </thead>
                        <tbody>
                            <tr v-for="stat in deptStats" :key="stat.key" :class="{'total-row': stat.key === 'TOTAL'}">
-                               <td style="font-weight:bold; padding-left:5px;">{{ stat.label }}</td>
+                               <td style="font-weight:bold; text-align: left;">{{ stat.label }}</td>
                                <td class="text-center">{{ stat.actual }}</td>
                                <td class="text-center text-success fw-bold">{{ stat.cumplidas }}</td>
                                <td class="text-center">{{ stat.promedio }}</td>
@@ -434,6 +580,7 @@
                    </table>
                </div>
            </div>
+           
            <div class="excel-container flex-fill mb-3">
                <table class="table-excel">
                    <thead>
@@ -471,18 +618,22 @@
                            <td><input :value="item.especialidad" readonly class="excel-input"></td>
                            <td><input :value="item.concepto" readonly class="excel-input"></td>
                            <td><div style="padding:0 8px; overflow:hidden; white-space:nowrap; font-size:12px">{{ item.responsable }}</div></td>
-                           <td class="text-center small">{{ new Date().toLocaleDateString() }}</td>
+                           <td class="text-center small">{{ item.fechaAlta ? formatDisplayDate(item.fechaAlta) : new Date().toLocaleDateString() }}</td>
                            <td><input :value="item.horas" readonly class="excel-input" style="text-align:center;"></td>
                            <td><input :value="item.cumplimiento" readonly class="excel-input"></td>
                            <td class="text-center"><i class="fas fa-file-pdf text-danger" v-if="item.archivoUrl"></i></td>
                            <td><input :value="item.comentarios" readonly class="excel-input"></td>
                            <td><input :value="item.comentariosPrevios" readonly class="excel-input"></td>
-                           <td class="text-center"><i class="fas fa-trash text-danger" style="cursor:pointer" @click="activityQueue.splice(idx,1)"></i></td>
+                           <td class="text-center"><i class="fas fa-trash text-danger" style="cursor:pointer" @click="activityQueue.splice(idx,1); syncQueueToBackend();"></i></td>
                        </tr>
                    </tbody>
                </table>
            </div>
-           <div class="d-flex justify-content-end"><button class="btn btn-success fw-bold" @click="submitBatch" :disabled="isSubmitting || !activityQueue.length">{{ isSubmitting ? 'Procesando...' : 'GUARDAR TODO' }}</button></div>
+           
+           <div class="d-flex justify-content-end mb-4 gap-2">
+               <button class="btn btn-danger fw-bold" @click="clearQueue" :disabled="isSubmitting || !activityQueue.length">DEPURAR (Limpiar Formato)</button>
+               <button class="btn btn-success fw-bold" @click="submitBatch" :disabled="isSubmitting || !activityQueue.length">{{ isSubmitting ? 'Procesando...' : 'GUARDAR TODO' }}</button>
+           </div>
         </div>
       </div>
       
@@ -496,6 +647,13 @@
       <div class="custom-modal">
           <div class="custom-modal-header"><span>Detalles Adicionales</span><button type="button" class="btn-close" @click="showExtraModal = false"></button></div>
           <div class="custom-modal-body">
+              <div class="mb-2">
+                  <label class="small fw-bold mb-1">Clasificación:</label>
+                  <div>
+                      <span v-for="opt in ['A','AA','AAA']" :key="opt" class="chip-select" :class="{active: extraData.clasificacion === opt}" @click="extraData.clasificacion = opt">{{ opt }}</span>
+                  </div>
+              </div>
+              
               <div class="mb-2"><label class="small fw-bold mb-1">Prioridades:</label><div><span v-for="opt in priorityOpts" :key="opt" class="chip-select" :class="{active: extraData.prioridades === opt}" @click="extraData.prioridades = opt">{{ opt }}</span></div></div>
               <div class="mb-2"><label class="small fw-bold mb-1">Riesgos:</label><div><span v-for="opt in riskOpts" :key="opt" class="chip-select" :class="{active: extraData.riesgos === opt}" @click="extraData.riesgos = opt">{{ opt }}</span></div></div>
               <div class="mb-2"><label class="small fw-bold">Restricciones:</label><input v-model="extraData.restricciones" class="form-control form-control-sm" placeholder="Escribir..."></div>
@@ -509,7 +667,7 @@
 <script>
   window.onerror = function(msg, url, line) { if(String(msg).toLowerCase().includes("script error")) return; Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
 
-  const { createApp, ref, computed } = Vue;
+  const { createApp, ref, computed, onMounted } = Vue;
   const app = createApp({
     setup() {
       // ESTADO
@@ -518,6 +676,7 @@
       const config = ref({ departments: {}, staff: [], directory: [], specialModules: [] });
       const staffTracker = ref({ name: '', data: [], history: [], headers: [], isLoading: false, previousView: 'DEPT' });
       const searchQuery = ref(''); 
+      const isCompact = ref(false); // Estado para la barra lateral
       
       // ESTADO PPC
       const ppcData = ref({ cumplimiento: 'NO', cliente: '', comentarios:'', comentariosPrevios:'' }); 
@@ -529,7 +688,7 @@
       const currentIframeUrl = ref(''); const iframeTitle = ref(''); 
       
       const showExtraModal = ref(false);
-      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '' });
+      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }); // Agregado clasificacion
       const priorityOpts = ['URGENTE', 'MEDIA', 'BAJA'];
       const riskOpts = ['ALTO', 'BAJO', 'CATASTROFICO'];
       const cellFileInput = ref(null);
@@ -601,15 +760,21 @@
           const up = String(h).toUpperCase();
           let w = '120px'; let fs = '12px'; let pad = '8px 4px';
           
-          if (up === 'CONCEPTO') w = '1200px';
+          // --- LOGICA DE ANCHOS PERSONALIZADA ---
+          if (up === 'CONCEPTO') {
+              // Si es Antonia Ventas: 900px. Si no, 1200px.
+              w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '900px' : '1200px';
+          }
+          // -------------------------------------
           
-          // --- NUEVAS REGLAS DE REDUCCION DE ESPACIO ---
           else if (up === 'HORA') { w = '50px'; fs = '10px'; }
           else if (up === 'FECHA ESTIMADA DE FIN') { w = '75px'; fs = '10px'; }
           else if (up === 'HORA ESTIMADA DE FIN') { w = '60px'; fs = '10px'; }
-          else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } // Prioridades
-          else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; } // Riesgos
-          // ---------------------------------------------
+          else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } 
+          else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; }
+          // REQUISITOR MAS PEQUEÑO
+          else if (up === 'REQUISITOR') { w = '90px'; fs = '11px'; }
+          else if (up === 'INFO CLIENTE') { w = '90px'; fs = '11px'; } // Nueva para Toñita
           
           else if (isCol(h, ['FOLIO','AREA','ALTA'])) w = '50px';
           else if (isCol(h, ['DIAS','RELOJ','CLASIFICACION'])) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
@@ -618,6 +783,7 @@
           else if (up.includes('FECHA') || up.includes('RESPUESTA')) { w = '65px'; fs = '10px'; }
           else if (up === 'VENDEDOR') { w = '75px'; fs = '10px'; }
           else if (up === 'CLIENTE') w = '200px';
+          
           return { width: w, fontSize: fs, padding: pad, overflow: 'hidden', textOverflow: 'ellipsis' };
       };
       
@@ -628,6 +794,10 @@
           if (up === 'HORA ESTIMADA DE FIN') return 'HR. EST. FIN';
           return h;
       };
+      
+      // Agregamos nuevas columnas a las de "Media" para que se comporten como archivos
+      const isMediaColumn = (h) => ['F2','COTIZACION','COT','COTIZACIÓN','TIMEOUT','TIME OUT','LAYOUT','TIMELINE','REQUISITOR','INFO CLIENTE'].includes(String(h).toUpperCase());
+
 
       const getTrafficStyle = (row) => {
           const t = String(row['CLASIFICACION']||'').trim().toUpperCase(); 
@@ -643,7 +813,7 @@
       const getFechaRespuestaStyle = (row) => {
           const startKey = Object.keys(row).find(k => ['FECHA','FECHA INICIO','FECHA DE INICIO'].includes(String(k).toUpperCase().trim()));
           const startDateVal = startKey ? row[startKey] : null;
-          const style = { backgroundColor: '#ffc107', color: 'black' }; // Amarillo
+          const style = { backgroundColor: '#ffc107', color: 'black' }; 
           if (!startDateVal) return style;
 
           let startDate = null;
@@ -662,17 +832,46 @@
               const diff = now - startDate;
               const days = Math.floor(diff / (1000 * 60 * 60 * 24));
               if (days > 3) {
-                  style.backgroundColor = '#dc3545'; // Rojo
+                  style.backgroundColor = '#dc3545'; 
                   style.color = 'white';
               }
           }
           return style;
       };
 
+      // Función auxiliar para obtener número de semana
+      const getWeekNumber = (d) => {
+          if (!d) return '';
+          let date = new Date(d);
+          if (isNaN(date.getTime())) {
+             const parts = String(d).split('/');
+             if(parts.length===3) date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+          if (isNaN(date.getTime())) return '-';
+          date.setHours(0, 0, 0, 0);
+          date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+          const week1 = new Date(date.getFullYear(), 0, 4);
+          return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+      };
+
       // ACCIONES
       const handleErr = (e) => { loggingIn.value=false; isSubmitting.value=false; Swal.fire('Error',e.message,'error'); };
       const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
-      const loadConfig = (r) => google.script.run.withSuccessHandler(d => config.value=d).getSystemConfig(r);
+      const loadConfig = (r) => {
+         google.script.run.withSuccessHandler(d => {
+             config.value=d;
+             // AL CARGAR CONFIG, RECUPERAMOS BORRADOR SI EXISTE
+             if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') {
+                 google.script.run.withSuccessHandler(res => {
+                     if(res.success && res.data.length > 0) {
+                         activityQueue.value = res.data;
+                     }
+                 }).apiFetchDrafts();
+             }
+         }).getSystemConfig(r);
+      };
+      
+      const toggleSidebar = () => { isCompact.value = !isCompact.value; };
       const logout = () => { isLoggedIn.value=false; loginPass.value=''; loginUser.value=''; currentView.value='DASHBOARD'; };
       const goHome = () => { currentView.value='DASHBOARD'; currentDept.value=''; currentModuleId.value=''; };
       const selectDept = (k) => { currentDept.value=k; currentView.value='DEPT'; searchQuery.value=''; currentModuleId.value=''; };
@@ -680,10 +879,11 @@
       
       const openModule = (m) => { 
           currentModuleId.value = m.id;
-          currentDept.value = ''; // Limpiar seleccion de depto
+          currentDept.value = ''; 
           if(m.type==='mirror_staff') openStaffTracker({name:m.target}); 
           else if(m.type==='ppc_native') {
               currentView.value='PPC_FORM'; 
+              // Cargar historial al abrir modulo
               google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData();
           }
           else if(m.type==='ppc_dynamic_view') {
@@ -691,6 +891,10 @@
              dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' };
              selectedResponsables.value = [];
              uploadSuccess.value = false;
+          }
+          else if(m.type==='weekly_plan_view') {
+             currentView.value='WEEKLY_PLAN';
+             google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData();
           }
       };
       const closeIframe = () => currentView.value='DASHBOARD';
@@ -716,10 +920,29 @@
       };
 
       const openCellUpload = (row, col) => { uploadingCell.value = {row, col}; cellFileInput.value.click(); };
+      
+      // MODIFICADO: SOPORTE PARA MULTIPLES ARCHIVOS (INFO CLIENTE)
       const handleCellFile = (e) => {
           const file = e.target.files[0]; if(!file || !uploadingCell.value.row) return; Swal.showLoading();
           const r = new FileReader();
-          r.onload = (ev) => { google.script.run.withSuccessHandler(res => { if(res.success){ uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; saveRow(uploadingCell.value.row); } else Swal.fire('Error', res.message, 'error'); e.target.value = null; }).uploadFileToDrive(ev.target.result, file.type, file.name); };
+          r.onload = (ev) => { 
+              google.script.run.withSuccessHandler(res => { 
+                  if(res.success){ 
+                      // SI ES INFO CLIENTE, AGREGAMOS EL LINK (APPEND) NO SOBRESCRIBIMOS
+                      const colName = String(uploadingCell.value.col).toUpperCase();
+                      if (colName === 'INFO CLIENTE') {
+                          const currentVal = uploadingCell.value.row[uploadingCell.value.col] || '';
+                          // Separamos por newline si ya hay valor
+                          uploadingCell.value.row[uploadingCell.value.col] = currentVal ? currentVal + '\n' + res.fileUrl : res.fileUrl;
+                      } else {
+                          // OTROS CAMPOS: SOBRESCRIBIR (Comportamiento normal)
+                          uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; 
+                      }
+                      saveRow(uploadingCell.value.row); 
+                  } else Swal.fire('Error', res.message, 'error'); 
+                  e.target.value = null; 
+              }).uploadFileToDrive(ev.target.result, file.type, file.name); 
+          };
           r.readAsDataURL(file);
       };
 
@@ -744,19 +967,28 @@
           }
       };
       
-      const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '' }; showExtraModal.value = true; };
+      const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
       
       const confirmAddToQueue = () => {
           const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos;
+          item.clasificacion = extraData.value.clasificacion; // Capturar clasificacion del modal
           let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp;
+          
+          item.fechaAlta = new Date().toISOString(); // GUARDAMOS FECHA DE CREACION
+
           activityQueue.value.push(item); 
           ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios='';
           selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false;
+          // SYNC CADA VEZ QUE AGREGAMOS
+          syncQueueToBackend();
+      };
+      
+      const syncQueueToBackend = () => {
+         google.script.run.withSuccessHandler(() => console.log('Drafts synced')).apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value)));
       };
       
       const saveDynamicPPC = () => {
           if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos obligatorios','','warning');
-          
           isSubmitting.value = true;
           let fResp = dynamicPpc.value.fechaFin; 
           if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; }
@@ -787,21 +1019,40 @@
           }).withFailureHandler(handleErr).apiSavePPCData([payload]);
       };
 
-      const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { 
+      const submitBatch = () => { 
+        isSubmitting.value=true; 
+        google.script.run.withSuccessHandler(res => { 
           isSubmitting.value=false; 
           if(res.success){ 
               Swal.fire('Guardado','','success'); 
-              activityQueue.value=[]; 
+              // No borramos la cola visual, ni la persistencia
               google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData();
           } else Swal.fire('Error',res.message,'error'); 
-      }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
+        }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); 
+      };
+
+      const clearQueue = () => {
+        Swal.fire({
+          title: '¿Limpiar tabla?',
+          text: "Esto borrará los datos del formulario (no del historial).",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          cancelButtonColor: '#3085d6',
+          confirmButtonText: 'Sí, limpiar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            activityQueue.value = [];
+            google.script.run.withSuccessHandler(() => Swal.fire('Limpio', 'Formulario reiniciado.', 'success')).apiClearDrafts();
+          }
+        });
+      };
       
       const toIsoDate = (val) => { if (!val) return ''; const parts = String(val).split('/'); if (parts.length === 3) { let y = parts[2]; if (y.length === 2) y = '20' + y; return `${y}-${parts[1]}-${parts[0]}`; } return ''; };
       const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
       const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
-      const isMediaColumn = (h) => ['F2','COTIZACION','COT','COTIZACIÓN','TIMEOUT','TIME OUT','LAYOUT','TIMELINE'].includes(String(h).toUpperCase());
-
-      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle };
+      
+      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, getWeekNumber, syncQueueToBackend, isCompact, toggleSidebar };
     }
   });
 
