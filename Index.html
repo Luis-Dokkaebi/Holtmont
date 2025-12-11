@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V126</title>
+  <title>Holtmont V131</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
     .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); overflow: hidden; position: relative; transition: margin-left 0.3s; }
     .view-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 20px; width: 100%; box-sizing: border-box; }
 
-    /* TABLA EXCEL GENÉRICA */
+    /* TABLA EXCEL */
     .excel-container { 
         flex: 1; overflow: auto; background: white; border: 1px solid #999; 
         box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%;
@@ -29,7 +29,6 @@
     .excel-container::-webkit-scrollbar-thumb:hover { background: #555; }
 
     .table-excel { width: max-content; min-width: 100%; border-collapse: collapse; background-color: #fff; table-layout: fixed; }
-    
     .table-excel th { 
         background-color: #e6e6e6; color: #000; font-weight: 700; text-align: center; 
         border: 1px solid #999; padding: 8px 4px; font-size: 12px; 
@@ -43,190 +42,50 @@
         line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: clip; 
     }
     .excel-input:focus { outline: 2px solid #107c41; outline-offset: -2px; z-index: 2; position: relative; background: white; }
-    
     .input-row { background-color: #f8f9fa; border-bottom: 2px solid #107c41; } 
     .row-num { background-color: #e6e6e6; text-align: center; color: #333; font-weight: bold; width: 40px; border-right: 3px solid #ccc !important; }
 
-    /* --- ESTILOS ULTRA COMPACTOS (MINI DASHBOARD) - VISIBLE SIN SCROLL --- */
-    .mini-table { 
-        width: auto !important; 
-        min-width: 0 !important; 
-        border: none;
-    }
-    .mini-table th { 
-        padding: 5px 6px; 
-        font-size: 11px; /* Letra legible */
-        height: auto; 
-        line-height: 1.2; 
-        border: 1px solid #999;
-        text-align: center;
-        white-space: nowrap;
-        background-color: #e6e6e6;
-    }
-    .mini-table td { 
-        height: auto; 
-        font-size: 11px; /* Letra legible */
-        padding: 4px 6px; 
-        line-height: 1.2;
-        border: 1px solid #ccc;
-    }
-    .mini-table .total-row td { 
-        background-color: #333; 
-        color: white; 
-        font-weight: bold; 
-        border-top: 2px solid #555 !important;
-    }
+    /* MINI DASHBOARD */
+    .mini-table { width: auto !important; min-width: 0 !important; border: none; }
+    .mini-table th { padding: 5px 6px; font-size: 11px; height: auto; line-height: 1.2; border: 1px solid #999; text-align: center; white-space: nowrap; background-color: #e6e6e6; }
+    .mini-table td { height: auto; font-size: 11px; padding: 4px 6px; line-height: 1.2; border: 1px solid #ccc; }
+    .mini-table .total-row td { background-color: #333; color: white; font-weight: bold; border-top: 2px solid #555 !important; }
 
-    /* --- ESTILOS PPC DINÁMICO (WHITE MODE / CLEAN) --- */
-    .dynamic-tracker { 
-        background-color: #f4f6f8 !important; 
-        color: #333; 
-        flex:1; display:flex; flex-direction:column; padding:0 !important; overflow-y:auto; 
-    }
-    .dynamic-form-card { 
-        background: #ffffff; 
-        border: 1px solid #dfe3e8; 
-        border-radius: 8px; 
-        padding: 25px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-        max-width: 960px; 
-        width: 100%;
-        margin: 0 auto;
-    }
-    .dynamic-input { 
-        background: #ffffff; 
-        border: 1px solid #ced4da; 
-        color: #333; 
-        padding: 8px 12px; 
-        border-radius: 4px; 
-        width: 100%; 
-        font-size: 13px; 
-        transition: border-color 0.2s;
-    }
-    .dynamic-input:focus { 
-        outline: none; 
-        border-color: #e83e8c; 
-        box-shadow: 0 0 0 2px rgba(232, 62, 140, 0.1); 
-    }
-    .dynamic-label { 
-        font-size: 11px; 
-        font-weight: 700; 
-        color: #637381; 
-        margin-bottom: 6px; 
-        display: block; 
-        text-transform: uppercase; 
-        letter-spacing: 0.5px; 
-    }
-    
-    /* Chips para Dinamico */
-    .chip-option { 
-        cursor: pointer; 
-        padding: 6px 14px; 
-        border-radius: 15px; 
-        background: #f1f3f5; 
-        border: 1px solid #dee2e6; 
-        color: #495057; 
-        font-size: 11px; 
-        margin-right: 6px; 
-        display: inline-block; 
-        transition: all 0.2s; 
-        font-weight: 500;
-    }
+    /* DYNAMIC TRACKER */
+    .dynamic-tracker { background-color: #f4f6f8 !important; color: #333; flex:1; display:flex; flex-direction:column; padding:0 !important; overflow-y:auto; }
+    .dynamic-form-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 960px; width: 100%; margin: 0 auto; }
+    .dynamic-input { background: #ffffff; border: 1px solid #ced4da; color: #333; padding: 8px 12px; border-radius: 4px; width: 100%; font-size: 13px; transition: border-color 0.2s; }
+    .dynamic-input:focus { outline: none; border-color: #e83e8c; box-shadow: 0 0 0 2px rgba(232, 62, 140, 0.1); }
+    .dynamic-label { font-size: 11px; font-weight: 700; color: #637381; margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+    .chip-option { cursor: pointer; padding: 6px 14px; border-radius: 15px; background: #f1f3f5; border: 1px solid #dee2e6; color: #495057; font-size: 11px; margin-right: 6px; display: inline-block; transition: all 0.2s; font-weight: 500; }
     .chip-option:hover { background: #e9ecef; border-color: #ced4da; }
-    .chip-option.selected { 
-        background: #e83e8c; 
-        color: white; 
-        border-color: #e83e8c; 
-        box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3); 
-    }
+    .chip-option.selected { background: #e83e8c; color: white; border-color: #e83e8c; box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3); }
 
-    /* LAYOUT & SIDEBAR INTELIGENTE */
+    /* LAYOUT & SIDEBAR */
     .app-wrapper { display: flex; height: 100vh; width: 100vw; }
-    
-    .sidebar { 
-        width: var(--sidebar-w); 
-        background: var(--primary); 
-        color: #a2a3b7; 
-        display: flex; 
-        flex-direction: column; 
-        transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        position: relative;
-        z-index: 1050;
-        white-space: nowrap;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
+    .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative; z-index: 1050; white-space: nowrap; overflow: hidden; flex-shrink: 0; }
+    .sidebar.compact { width: var(--sidebar-mini); }
+    .sidebar.compact:hover { width: var(--sidebar-w); box-shadow: 5px 0 15px rgba(0,0,0,0.3); }
 
-    /* MODO COMPACTO */
-    .sidebar.compact { 
-        width: var(--sidebar-mini); 
-    }
-    
-    /* EXPANSION AL PASAR EL MOUSE (OVERLAY) */
-    .sidebar.compact:hover {
-        width: var(--sidebar-w);
-        box-shadow: 5px 0 15px rgba(0,0,0,0.3);
-    }
-
-    .brand {
-        height: 70px;
-        display: flex;
-        align-items: center;
-        padding: 0 20px;
-        font-weight: bold;
-        color: white;
-        justify-content: space-between;
-    }
-    
+    .brand { height: 70px; display: flex; align-items: center; padding: 0 20px; font-weight: bold; color: white; justify-content: space-between; }
     .menu { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 0; }
-    .menu::-webkit-scrollbar { width: 4px; }
-    .menu::-webkit-scrollbar-track { background: transparent; } 
-    .menu::-webkit-scrollbar-thumb { background: #3f4050; border-radius: 4px; }
-
-    .nav-item { 
-        padding: 12px 20px; 
-        cursor: pointer; 
-        display: flex; 
-        align-items: center; 
-        color: #a2a3b7; 
-        transition: 0.2s; 
-        height: 45px;
-    }
+    .nav-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; color: #a2a3b7; transition: 0.2s; height: 45px; }
     .nav-item:hover { color: white; background: rgba(255,255,255,0.03); }
     .nav-item.active { background: #1b1b29; color: var(--accent); } 
-    
     .nav-icon-col { width: 25px; text-align: center; margin-right: 15px; display: flex; justify-content: center; }
     .nav-text { transition: opacity 0.2s; opacity: 1; }
-    
-    /* Ocultar texto en modo compacto (si no hay hover) */
-    .sidebar.compact:not(:hover) .nav-text, 
-    .sidebar.compact:not(:hover) .brand-text,
-    .sidebar.compact:not(:hover) .section-title {
-        opacity: 0;
-        pointer-events: none;
-        display: none; 
-    }
-    
-    /* Ajuste de iconos en modo compacto */
+    .sidebar.compact:not(:hover) .nav-text, .sidebar.compact:not(:hover) .brand-text, .sidebar.compact:not(:hover) .section-title { opacity: 0; pointer-events: none; display: none; }
     .sidebar.compact:not(:hover) .nav-item { padding: 12px 0; justify-content: center; }
     .sidebar.compact:not(:hover) .nav-icon-col { margin-right: 0; }
     .sidebar.compact:not(:hover) .brand { justify-content: center; padding: 0; }
     .sidebar.compact:not(:hover) .btn-toggle-sidebar { margin: 0; }
-
     .section-title { padding: 15px 20px 5px; font-size: 0.7rem; color: #555; font-weight: bold; white-space: nowrap; }
-
     .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
     
     /* COMPONENTES */
     .login-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 2000; display: flex; align-items: center; justify-content: center; }
     .login-card { background: #1c1c1c; padding: 40px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: #eee; position: relative; overflow: hidden; }
-    .login-logo { max-width: 85%; height: auto; margin-bottom: 25px; -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%); mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%); }
-    .login-card .form-control { background: #2a2a3b; border: 1px solid #444; color: white; }
-    .login-card .form-control::placeholder { color: #888; }
-    .login-card .form-control:focus { background: #333; border-color: var(--accent); box-shadow: none; }
-    .login-card h3 { color: white !important; }
-    .login-card p.text-muted { color: #aaa !important; }
-
+    .login-logo { max-width: 85%; height: auto; margin-bottom: 25px; mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%); }
     .dept-card, .staff-card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(0,0,0,0.03); padding: 20px; text-align: center; cursor: pointer; transition: 0.3s; }
     .dept-card:hover, .staff-card:hover { transform: translateY(-5px); border-color: var(--accent); }
     .chip-container { border: 1px solid #ccc; background: white; padding: 2px; display: flex; flex-wrap: wrap; gap: 2px; min-height: 100%; align-items: center; }
@@ -303,9 +162,6 @@
                     <span v-else>Salir</span>
                 </button>
             </div>
-            <div class="text-center pb-4 mb-2" v-if="!isCompact">
-                <img src="https://lh3.googleusercontent.com/d/1tmNuwauWNjOhv0JwX6ug9pzvsrBCNX7z" alt="Logo Footer" style="max-width: 100px; height:auto; opacity: 0.5; filter: grayscale(100%) invert(1);">
-            </div>
         </div>
       </div>
     </aside>
@@ -381,16 +237,12 @@
                              <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">{{ row[h] ? String(row[h]).split(' ')[0] : '' }}</div>
                              <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="s in salesStaff" :key="s" :value="s">{{s}}</option></select>
                          </div>
-                         
                          <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px; display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; height:100%;">
                              <template v-if="row[h]">
-                                 <a v-for="(url, uIdx) in String(row[h]).split(/[\n\s]+/).filter(u => u.startsWith('http'))" :key="uIdx" :href="url" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:9px; margin-right:1px;" title="Ver archivo">
-                                    <i class="fas fa-paperclip"></i>
-                                 </a>
+                                 <a v-for="(url, uIdx) in String(row[h]).split(/[\n\s]+/).filter(u => u.startsWith('http'))" :key="uIdx" :href="url" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:9px; margin-right:1px;" title="Ver archivo"><i class="fas fa-paperclip"></i></a>
                              </template>
                              <button class="btn btn-sm btn-light border py-0 px-1 text-secondary" @click="openCellUpload(row, h)" title="Subir archivo"><i class="fas fa-cloud-upload-alt" style="font-size:10px"></i></button>
                          </div>
-
                          <div v-else-if="isCol(h, ['CLASIFICACION'])" style="position:relative; width:100%; height:100%;">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:10px; font-weight:bold;">{{ row[h] }}</div>
                              <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option></select>
@@ -398,14 +250,10 @@
                          <input v-else-if="isCol(h, ['DIAS','RELOJ'])" v-model="row[h]" style="text-align:center; font-weight:bold; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;" :style="getTrafficStyle(row)">
                          <input v-else-if="String(h).toUpperCase().includes('AVANCE')" v-model="row[h]" style="text-align:center; font-weight:bold; color:#217346; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;">
                          <input v-else-if="isCol(h, ['ESTATUS','STATUS'])" v-model="row[h]" style="text-align:center; font-weight:bold; font-size:10px; width:100%; height:100%; border:none; outline:none; padding:6px 1px; background:transparent;" class="excel-input">
-                         
-                         <div v-else-if="String(h).toUpperCase().includes('FECHA')" 
-                              style="position:relative; width:100%; height:100%;"
-                              :style="isCol(h, ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FEC. EST. FIN', 'FECHA ESTIMADA DE FIN']) ? getFechaRespuestaStyle(row) : {}">
+                         <div v-else-if="String(h).toUpperCase().includes('FECHA')" style="position:relative; width:100%; height:100%;" :style="isCol(h, ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FEC. EST. FIN', 'FECHA ESTIMADA DE FIN']) ? getFechaRespuestaStyle(row) : {}">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:4px; font-size:12px; pointer-events:none;">{{ formatDisplayDate(row[h]) }}</div>
                              <input type="date" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" :value="toIsoDate(row[h])" @input="updateDateFromPicker($event, row, h)">
                          </div>
-                         
                          <input v-else v-model="row[h]" class="excel-input" spellcheck="false">
                       </td>
                    </tr>
@@ -418,12 +266,105 @@
           </div>
         </div>
 
+        <div v-if="currentView === 'WEEKLY_PLAN'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <h5 class="m-0 text-primary fw-bold"><i class="fas fa-calendar-week me-2"></i>Planeación Semanal (PPCV3)</h5>
+                    
+                    <select v-model="selectedWeek" class="form-select form-select-sm" style="width: auto; font-weight: bold; border-color: #0d6efd;">
+                        <option value="">VER TODAS</option>
+                        <option v-for="w in availableWeeks" :key="w" :value="w">Semana {{ w }}</option>
+                    </select>
+                </div>
+
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm me-2" @click="loadWeeklyPlan" title="Recargar"><i class="fas fa-sync-alt"></i></button>
+                    <button class="btn btn-light border btn-sm" @click="goHome">Cerrar</button>
+                </div>
+            </div>
+
+            <div class="d-flex mb-3 align-items-end justify-content-start">
+            <div class="excel-container" style="height: auto; max-height: 250px; overflow: auto; flex:none; width: fit-content; border:none; box-shadow:none;">
+                <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
+                    <thead>
+                        <tr>
+                            <th style="min-width:140px">ESPECIALIDAD</th>
+                            <th style="width:50px">TOTAL</th>
+                            <th style="width:50px" class="bg-success text-white">SI</th>
+                            <th style="width:50px" class="bg-danger text-white">NO</th>
+                            <th style="width:70px">PROMEDIO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(s, i) in weeklyStats" :key="i" :class="{'total-row': s.isTotal}">
+                            <td class="text-start ps-2 fw-bold" style="font-size:11px">{{ s.label }}</td>
+                            <td class="text-center">{{ s.total }}</td>
+                            <td class="text-center text-success fw-bold">{{ s.si }}</td>
+                            <td class="text-center text-danger">{{ s.no }}</td>
+                            <td class="text-center fw-bold text-primary">{{ s.avg }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+            <div class="excel-container flex-fill">
+                <div v-if="weeklyPlanData.isLoading" class="text-center p-5 text-muted">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <div>Cargando datos...</div>
+                </div>
+                
+                <table v-else class="table-excel">
+                    <thead>
+                        <tr>
+                            <th class="row-num">#</th>
+                            <th v-for="(h, idx) in weeklyPlanData.headers" :key="idx" :style="getColumnStyle(h)">
+                                {{ getHeaderLabel(h) }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, i) in filteredWeeklyData" :key="i">
+                            <td class="row-num">{{ i + 1 }}</td>
+                            <td v-for="(h, idx) in weeklyPlanData.headers" :key="idx" class="text-center">
+                                
+                                <div v-if="h === 'SEMANA'" style="font-weight:bold; color:#0d6efd; background-color:#f8f9fa; font-size:10px;">
+                                    S{{ row[h] }}
+                                </div>
+
+                                <div v-else-if="h.includes('CUMPLIMIENTO')" style="position:relative; width:100%; height:100%;">
+                                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:1;">
+                                        <span class="badge rounded-pill" 
+                                            :class="String(row[h]).toUpperCase() === 'SI' ? 'bg-success' : 'bg-danger'"
+                                            style="font-size:10px; width:40px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                            {{ row[h] || 'NO' }}
+                                        </span>
+                                    </div>
+                                    <select v-model="row[h]" @change="savePPCV3Row(row)" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">
+                                        <option value="SI">SI</option>
+                                        <option value="NO">NO</option>
+                                    </select>
+                                </div>
+
+                                <div v-else-if="h.includes('ARCHIVO') || h.includes('CLIP')">
+                                    <a v-if="row[h]" :href="row[h]" target="_blank" class="btn btn-sm text-primary"><i class="fas fa-paperclip"></i></a>
+                                </div>
+
+                                <div v-else class="px-1" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;" :title="row[h]">
+                                    {{ row[h] }}
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div v-if="currentView === 'PPC_DINAMICO'" class="h-100 dynamic-tracker" style="padding:20px !important;">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold m-0" style="color:#2c3e50"><i class="fas fa-layer-group me-2" style="color:#e83e8c"></i>Tracker</h4>
             <button class="btn btn-outline-secondary btn-sm" @click="goHome">Cerrar</button>
           </div>
-
           <div class="dynamic-form-card">
              <div class="row g-3">
                  <div class="col-md-6">
@@ -436,12 +377,9 @@
                  <div class="col-md-6">
                      <label class="dynamic-label">Clasificación</label>
                      <select v-model="dynamicPpc.clasificacion" class="dynamic-input">
-                         <option value="A">A</option>
-                         <option value="AA">AA</option>
-                         <option value="AAA">AAA</option>
+                         <option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option>
                      </select>
                  </div>
-
                  <div class="col-12">
                      <label class="dynamic-label">Responsable</label>
                      <div class="dynamic-input" style="min-height:38px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;" @click="$refs.chipDyn.focus()">
@@ -454,96 +392,17 @@
                          <li v-for="p in filteredDirectory" :key="p.name" class="list-group-item list-group-item-action small py-1" style="cursor:pointer;" @click="addResponsable(p.name)">{{p.name}}</li>
                      </ul>
                  </div>
-
-                 <div class="col-12">
-                     <label class="dynamic-label">Descripción de la Actividad</label>
-                     <textarea v-model="dynamicPpc.concepto" class="dynamic-input" rows="3"></textarea>
-                 </div>
-
-                 <div class="col-md-6">
-                     <label class="dynamic-label">Riesgos</label>
-                     <div>
-                         <span v-for="r in ['BAJO','MEDIO','ALTO','CATASTROFICO']" :key="r" class="chip-option" :class="{selected: dynamicPpc.riesgos === r}" @click="dynamicPpc.riesgos = r">{{r}}</span>
-                     </div>
-                 </div>
-                 <div class="col-md-6">
-                     <label class="dynamic-label">Prioridad</label>
-                     <div>
-                         <span v-for="p in ['BAJA','MEDIA','URGENTE']" :key="p" class="chip-option" :class="{selected: dynamicPpc.prioridad === p}" @click="dynamicPpc.prioridad = p">{{p}}</span>
-                     </div>
-                 </div>
-
-                 <div class="col-md-3">
-                     <label class="dynamic-label">Fecha de Finalización</label>
-                     <input type="date" v-model="dynamicPpc.fechaFin" class="dynamic-input">
-                 </div>
-                 <div class="col-md-3">
-                     <label class="dynamic-label">Archivos</label>
-                     <button class="btn btn-outline-primary w-100 btn-sm" @click="openFileDialog" style="border-style:dashed; height:36px;">
-                         <i class="fas" :class="uploadSuccess ? 'fa-check text-success' : 'fa-cloud-upload-alt'"></i> {{ uploadSuccess ? 'Archivo Listo' : 'SUBIR ARCHIVO' }}
-                     </button>
-                     <input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect">
-                 </div>
-                 <div class="col-md-6">
-                     <label class="dynamic-label">Comentarios</label>
-                     <input v-model="dynamicPpc.comentarios" class="dynamic-input">
-                 </div>
+                 <div class="col-12"><label class="dynamic-label">Descripción</label><textarea v-model="dynamicPpc.concepto" class="dynamic-input" rows="3"></textarea></div>
+                 <div class="col-md-6"><label class="dynamic-label">Riesgos</label><div><span v-for="r in ['BAJO','MEDIO','ALTO','CATASTROFICO']" :key="r" class="chip-option" :class="{selected: dynamicPpc.riesgos === r}" @click="dynamicPpc.riesgos = r">{{r}}</span></div></div>
+                 <div class="col-md-6"><label class="dynamic-label">Prioridad</label><div><span v-for="p in ['BAJA','MEDIA','URGENTE']" :key="p" class="chip-option" :class="{selected: dynamicPpc.prioridad === p}" @click="dynamicPpc.prioridad = p">{{p}}</span></div></div>
+                 <div class="col-md-3"><label class="dynamic-label">Fecha Fin</label><input type="date" v-model="dynamicPpc.fechaFin" class="dynamic-input"></div>
+                 <div class="col-md-3"><label class="dynamic-label">Archivos</label><button class="btn btn-outline-primary w-100 btn-sm" @click="openFileDialog" style="border-style:dashed; height:36px;"><i class="fas" :class="uploadSuccess ? 'fa-check text-success' : 'fa-cloud-upload-alt'"></i> {{ uploadSuccess ? 'Listo' : 'SUBIR' }}</button><input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect"></div>
+                 <div class="col-md-6"><label class="dynamic-label">Comentarios</label><input v-model="dynamicPpc.comentarios" class="dynamic-input"></div>
              </div>
-
              <div class="mt-4 text-end">
-                 <button class="btn btn-lg fw-bold px-5 text-white" style="background:#e83e8c; border:none; box-shadow: 0 4px 6px rgba(232, 62, 140, 0.3);" @click="saveDynamicPPC" :disabled="isSubmitting">
-                     <i class="fas fa-save me-2"></i> GUARDAR REGISTRO
-                 </button>
+                 <button class="btn btn-lg fw-bold px-5 text-white" style="background:#e83e8c; border:none;" @click="saveDynamicPPC" :disabled="isSubmitting"><i class="fas fa-save me-2"></i> GUARDAR</button>
              </div>
           </div>
-        </div>
-        
-        <div v-if="currentView === 'WEEKLY_PLAN'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
-           <div class="d-flex justify-content-between align-items-center mb-3">
-               <h5 class="m-0" style="color:#6f42c1"><i class="fas fa-calendar-alt me-2"></i>Historial Semanal</h5>
-               <button class="btn btn-light border" @click="goHome">Cerrar</button>
-           </div>
-           
-           <div class="excel-container flex-fill">
-               <div class="sticky-top bg-light border-bottom px-3 py-2 d-flex justify-content-between align-items-center">
-                   <span class="fw-bold text-muted">REGISTRO DE ACTIVIDADES</span>
-                   <span class="badge bg-secondary">{{ ppcExistingData.length }} registros</span>
-               </div>
-               <table class="table-excel">
-                   <thead>
-                       <tr>
-                           <th style="width:50px">SEM</th>
-                           <th style="width:80px">FECHA</th>
-                           <th style="width:100px">DEPTO</th>
-                           <th style="min-width:300px">DESCRIPCIÓN</th>
-                           <th style="width:150px">RESPONSABLE</th>
-                           <th style="width:50px">RELOJ</th>
-                           <th style="width:50px">CUMP</th>
-                           <th style="width:40px">CLIP</th>
-                           <th style="min-width:150px">COMENTARIOS</th>
-                           <th style="min-width:150px">PREVIOS</th>
-                       </tr>
-                   </thead>
-                   <tbody>
-                       <tr v-for="(row, i) in ppcExistingData" :key="row.id">
-                           <td class="text-center fw-bold text-muted">{{ getWeekNumber(row.fechaAlta) }}</td>
-                           <td class="text-center">{{ formatDisplayDate(row.fechaAlta) }}</td>
-                           <td style="font-size:11px">{{ row.especialidad }}</td>
-                           <td>{{ row.concepto }}</td>
-                           <td style="font-size:11px">{{ row.responsable }}</td>
-                           <td class="text-center">{{ row.horas }}</td>
-                           <td class="text-center fw-bold" :class="{'text-success': row.cumplimiento === 'SI', 'text-danger': row.cumplimiento === 'NO'}">
-                               {{ row.cumplimiento }}
-                           </td>
-                           <td class="text-center">
-                               <a v-if="row.archivoUrl" :href="row.archivoUrl" target="_blank" class="text-primary"><i class="fas fa-paperclip"></i></a>
-                           </td>
-                           <td style="font-size:11px">{{ row.comentarios }}</td>
-                           <td style="font-size:11px">{{ row.comentariosPrevios }}</td>
-                       </tr>
-                   </tbody>
-               </table>
-           </div>
         </div>
 
         <div v-if="currentView === 'PPC_FORM'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
@@ -551,53 +410,17 @@
                <h5 class="m-0 text-primary"><i class="fas fa-th me-2"></i>PPC Maestro</h5>
                <button class="btn btn-light border" @click="goHome">Cerrar</button>
            </div>
-
            <div class="d-flex mb-3 align-items-end justify-content-center position-relative" style="min-height: 90px;">
-               <div style="position: absolute; left: 0; bottom: 0; height: 300px; border: none; background: transparent; overflow: hidden; z-index: 0; max-width: 500px;">
-                    <img src="https://drive.google.com/thumbnail?id=13qDi95Fkfj7NMv5bvj1qs3xcoAd6r1BD" style="width: 100%; height: 100%; object-fit: contain; object-position: left bottom;" alt="Logo PPC">
-               </div>
-
                <div class="excel-container" style="height: auto; max-height: none; overflow: visible; flex:none; width: fit-content; z-index: 1; border:none; box-shadow:none; background: transparent;">
                    <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
-                       <thead>
-                           <tr>
-                               <th style="width:100px">ESPECIALIDAD</th>
-                               <th style="width:40px">ACT</th>
-                               <th style="width:40px">CUMP</th>
-                               <th style="width:45px">PROM</th>
-                               <th style="width:40px">ANT</th>
-                           </tr>
-                       </thead>
-                       <tbody>
-                           <tr v-for="stat in deptStats" :key="stat.key" :class="{'total-row': stat.key === 'TOTAL'}">
-                               <td style="font-weight:bold; text-align: left;">{{ stat.label }}</td>
-                               <td class="text-center">{{ stat.actual }}</td>
-                               <td class="text-center text-success fw-bold">{{ stat.cumplidas }}</td>
-                               <td class="text-center">{{ stat.promedio }}</td>
-                               <td class="text-center text-muted">{{ stat.anterior }}</td>
-                           </tr>
-                       </tbody>
+                       <thead><tr><th style="width:100px">ESPECIALIDAD</th><th style="width:40px">ACT</th><th style="width:40px">CUMP</th><th style="width:45px">PROM</th><th style="width:40px">ANT</th></tr></thead>
+                       <tbody><tr v-for="stat in deptStats" :key="stat.key" :class="{'total-row': stat.key === 'TOTAL'}"><td style="font-weight:bold; text-align: left;">{{ stat.label }}</td><td class="text-center">{{ stat.actual }}</td><td class="text-center text-success fw-bold">{{ stat.cumplidas }}</td><td class="text-center">{{ stat.promedio }}</td><td class="text-center text-muted">{{ stat.anterior }}</td></tr></tbody>
                    </table>
                </div>
            </div>
-           
            <div class="excel-container flex-fill mb-3">
                <table class="table-excel">
-                   <thead>
-                       <tr>
-                           <th class="row-num">#</th>
-                           <th style="width:100px">Depto</th>
-                           <th style="min-width:400px">Descripción Actividad</th>
-                           <th style="width:150px">Responsable</th>
-                           <th style="width:80px">Fecha Alta</th>
-                           <th style="width:40px">Reloj</th>
-                           <th style="width:50px">Cumpl.</th>
-                           <th style="width:40px">Clip</th>
-                           <th style="min-width:150px">Comentarios Sem. Curso</th>
-                           <th style="min-width:150px">Comentarios Sem. Previa</th>
-                           <th style="width:50px"></th>
-                       </tr>
-                   </thead>
+                   <thead><tr><th class="row-num">#</th><th style="width:100px">Depto</th><th style="min-width:400px">Descripción Actividad</th><th style="width:150px">Responsable</th><th style="width:80px">Fecha</th><th style="width:40px">Reloj</th><th style="width:50px">Cumpl.</th><th style="width:40px">Clip</th><th style="min-width:150px">Comentarios</th><th style="min-width:150px">Previos</th><th style="width:50px"></th></tr></thead>
                    <tbody>
                        <tr class="input-row">
                            <td class="row-num">></td>
@@ -612,7 +435,6 @@
                            <td><input v-model="ppcData.comentariosPrevios" class="excel-input" placeholder="..." style="background:#f0fdf4"></td>
                            <td class="text-center"><button class="btn btn-primary btn-sm py-0" @click="promptExtraData" title="Más Detalles">+</button></td>
                        </tr>
-
                        <tr v-for="(item, idx) in activityQueue" :key="idx">
                            <td class="row-num">{{ idx + 1 }}</td>
                            <td><input :value="item.especialidad" readonly class="excel-input"></td>
@@ -629,9 +451,8 @@
                    </tbody>
                </table>
            </div>
-           
            <div class="d-flex justify-content-end mb-4 gap-2">
-               <button class="btn btn-danger fw-bold" @click="clearQueue" :disabled="isSubmitting || !activityQueue.length">DEPURAR (Limpiar Formato)</button>
+               <button class="btn btn-danger fw-bold" @click="clearQueue" :disabled="isSubmitting || !activityQueue.length">DEPURAR</button>
                <button class="btn btn-success fw-bold" @click="submitBatch" :disabled="isSubmitting || !activityQueue.length">{{ isSubmitting ? 'Procesando...' : 'GUARDAR TODO' }}</button>
            </div>
         </div>
@@ -645,21 +466,15 @@
 
   <div v-if="showExtraModal" class="custom-modal-overlay">
       <div class="custom-modal">
-          <div class="custom-modal-header"><span>Detalles Adicionales</span><button type="button" class="btn-close" @click="showExtraModal = false"></button></div>
+          <div class="custom-modal-header"><span>Detalles</span><button type="button" class="btn-close" @click="showExtraModal = false"></button></div>
           <div class="custom-modal-body">
-              <div class="mb-2">
-                  <label class="small fw-bold mb-1">Clasificación:</label>
-                  <div>
-                      <span v-for="opt in ['A','AA','AAA']" :key="opt" class="chip-select" :class="{active: extraData.clasificacion === opt}" @click="extraData.clasificacion = opt">{{ opt }}</span>
-                  </div>
-              </div>
-              
+              <div class="mb-2"><label class="small fw-bold mb-1">Clasificación:</label><div><span v-for="opt in ['A','AA','AAA']" :key="opt" class="chip-select" :class="{active: extraData.clasificacion === opt}" @click="extraData.clasificacion = opt">{{ opt }}</span></div></div>
               <div class="mb-2"><label class="small fw-bold mb-1">Prioridades:</label><div><span v-for="opt in priorityOpts" :key="opt" class="chip-select" :class="{active: extraData.prioridades === opt}" @click="extraData.prioridades = opt">{{ opt }}</span></div></div>
               <div class="mb-2"><label class="small fw-bold mb-1">Riesgos:</label><div><span v-for="opt in riskOpts" :key="opt" class="chip-select" :class="{active: extraData.riesgos === opt}" @click="extraData.riesgos = opt">{{ opt }}</span></div></div>
-              <div class="mb-2"><label class="small fw-bold">Restricciones:</label><input v-model="extraData.restricciones" class="form-control form-control-sm" placeholder="Escribir..."></div>
+              <div class="mb-2"><label class="small fw-bold">Restricciones:</label><input v-model="extraData.restricciones" class="form-control form-control-sm"></div>
               <div class="mb-2"><label class="small fw-bold">Fecha Respuesta:</label><input type="date" v-model="extraData.fechaRespuesta" class="form-control form-control-sm"></div>
           </div>
-          <div class="custom-modal-footer"><button class="btn btn-primary btn-sm w-100" @click="confirmAddToQueue">Guardar y Agregar</button></div>
+          <div class="custom-modal-footer"><button class="btn btn-primary btn-sm w-100" @click="confirmAddToQueue">Agregar</button></div>
       </div>
   </div>
 </div>
@@ -670,15 +485,13 @@
   const { createApp, ref, computed, onMounted } = Vue;
   const app = createApp({
     setup() {
-      // ESTADO
       const isLoggedIn = ref(false); const loginPass = ref(''); const loginUser = ref(''); const loggingIn = ref(false); const currentUser = ref('');
       const currentView = ref('DASHBOARD'); const currentDept = ref('');
       const config = ref({ departments: {}, staff: [], directory: [], specialModules: [] });
       const staffTracker = ref({ name: '', data: [], history: [], headers: [], isLoading: false, previousView: 'DEPT' });
-      const searchQuery = ref(''); 
-      const isCompact = ref(false); // Estado para la barra lateral
+      const weeklyPlanData = ref({ headers: [], data: [], isLoading: false }); 
+      const searchQuery = ref(''); const isCompact = ref(false); 
       
-      // ESTADO PPC
       const ppcData = ref({ cumplimiento: 'NO', cliente: '', comentarios:'', comentariosPrevios:'' }); 
       const isSubmitting = ref(false);
       const selectedResponsables = ref([]); const staffSearch = ref(''); const activityQueue = ref([]); 
@@ -686,97 +499,107 @@
       
       const isUploadingFile = ref(false); const uploadSuccess = ref(false); const fileInput = ref(null);
       const currentIframeUrl = ref(''); const iframeTitle = ref(''); 
-      
       const showExtraModal = ref(false);
-      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }); // Agregado clasificacion
-      const priorityOpts = ['URGENTE', 'MEDIA', 'BAJA'];
-      const riskOpts = ['ALTO', 'BAJO', 'CATASTROFICO'];
-      const cellFileInput = ref(null);
-      const uploadingCell = ref({row:null, col:null});
-
-      // --- NUEVO ESTADO PARA PPC DINÁMICO ---
+      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' });
+      const priorityOpts = ['URGENTE', 'MEDIA', 'BAJA']; const riskOpts = ['ALTO', 'BAJO', 'CATASTROFICO'];
+      const cellFileInput = ref(null); const uploadingCell = ref({row:null, col:null});
       const dynamicPpc = ref({ especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' });
 
-      // COMPUTADAS
+      // --- FILTRO DE SEMANA ---
+      const selectedWeek = ref(''); 
+
       const salesStaff = computed(() => (config.value.directory || []).filter(p => p.dept === 'VENTAS' && p.name !== 'ANTONIA_VENTAS').map(p => p.name));
       const filteredStaff = computed(() => config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase())));
       const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
       const pageTitle = computed(() => currentView.value);
       const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
-      const currentModuleId = ref(''); // Nueva ref para el menu
+      const currentModuleId = ref('');
 
-      // --- LOGICA DE ESTADISTICAS PPC CON TOTALES (CORREGIDA) ---
       const deptStats = computed(() => {
-          const stats = [];
-          let totalActual = 0;
-          let totalCumplidas = 0;
-          let totalGlobalDB = 0;
-          
-          // ITERAMOS SOBRE allDepartments SI EXISTE, SINO departments
+          const stats = []; let totalActual=0; let totalCumplidas=0; let totalGlobalDB=0;
           const deptsToIterate = config.value.allDepartments || config.value.departments;
-
           for (const key in deptsToIterate) {
               const deptLabel = deptsToIterate[key].label;
               const actual = activityQueue.value.filter(i => i.especialidad === key).length;
               const totalDB = ppcExistingData.value.filter(i => i.especialidad === key || i.especialidad === deptLabel);
               const cumplidas = totalDB.filter(i => String(i.cumplimiento).toUpperCase() === 'SI').length;
-              let prom = 0;
-              if (totalDB.length > 0) prom = Math.round((cumplidas / totalDB.length) * 100);
-              
-              // ACUMULAR
-              totalActual += actual;
-              totalCumplidas += cumplidas;
-              totalGlobalDB += totalDB.length;
-
-              stats.push({
-                  key: key,
-                  label: deptLabel.toUpperCase(),
-                  actual: actual,
-                  cumplidas: cumplidas,
-                  promedio: prom + '%',
-                  anterior: '0%' 
-              });
+              let prom = 0; if (totalDB.length > 0) prom = Math.round((cumplidas / totalDB.length) * 100);
+              totalActual += actual; totalCumplidas += cumplidas; totalGlobalDB += totalDB.length;
+              stats.push({ key: key, label: deptLabel.toUpperCase(), actual: actual, cumplidas: cumplidas, promedio: prom + '%', anterior: '0%' });
           }
-          
-          // FILA TOTAL
-          let totalProm = 0;
-          if (totalGlobalDB > 0) totalProm = Math.round((totalCumplidas / totalGlobalDB) * 100);
-          
-          stats.push({
-              key: 'TOTAL',
-              label: 'TOTAL',
-              actual: totalActual,
-              cumplidas: totalCumplidas,
-              promedio: totalProm + '%',
-              anterior: '0%'
-          });
-
+          let totalProm = 0; if (totalGlobalDB > 0) totalProm = Math.round((totalCumplidas / totalGlobalDB) * 100);
+          stats.push({ key: 'TOTAL', label: 'TOTAL', actual: totalActual, cumplidas: totalCumplidas, promedio: totalProm + '%', anterior: '0%' });
           return stats;
       });
 
-      // FUNCIONES DE ESTILO
+      // --- LOGICA DE SEMANAS Y FILTROS ---
+      const availableWeeks = computed(() => {
+          const allWeeks = weeklyPlanData.value.data.map(i => i.SEMANA).filter(w => w && w !== '-');
+          return [...new Set(allWeeks)].sort((a,b) => b - a);
+      });
+
+      const filteredWeeklyData = computed(() => {
+          if (!selectedWeek.value) return weeklyPlanData.value.data;
+          return weeklyPlanData.value.data.filter(r => String(r.SEMANA) == String(selectedWeek.value));
+      });
+
+      // --- KPI DETALLADO POR ESPECIALIDAD ---
+      const weeklyStats = computed(() => {
+           const data = filteredWeeklyData.value || [];
+           const stats = [];
+           let grandTotal = 0; let grandSi = 0;
+           
+           const depts = config.value.allDepartments || config.value.departments || {};
+           const norm = s => String(s||'').toUpperCase().trim();
+
+           // 1. Iterar departamentos configurados
+           for (const key in depts) {
+               const label = depts[key].label.toUpperCase();
+               const items = data.filter(r => {
+                   const s = norm(r['ESPECIALIDAD'] || r['AREA']);
+                   return s === key || s === norm(depts[key].label);
+               });
+               
+               const t = items.length;
+               const s = items.filter(r => norm(r['CUMPLIMIENTO']) === 'SI').length;
+               const n = t - s;
+               const p = t > 0 ? Math.round((s/t)*100) : 0;
+               
+               // Agregamos todas las especialidades a la lista
+               stats.push({ label: label, total: t, si: s, no: n, avg: p + '%' });
+               grandTotal += t; grandSi += s;
+           }
+           
+           // Fila TOTAL
+           const grandNo = grandTotal - grandSi;
+           const grandAvg = grandTotal > 0 ? Math.round((grandSi/grandTotal)*100) : 0;
+           stats.push({ label: 'TOTAL GLOBAL', total: grandTotal, si: grandSi, no: grandNo, avg: grandAvg + '%', isTotal: true });
+           
+           return stats;
+      });
+
       const isCol = (h, list) => list.includes(String(h).toUpperCase().trim());
+      
       const getColumnStyle = (h) => {
-          const up = String(h).toUpperCase();
+          const up = String(h).toUpperCase().trim();
           let w = '120px'; let fs = '12px'; let pad = '8px 4px';
-          
-          // --- LOGICA DE ANCHOS PERSONALIZADA ---
-          if (up === 'CONCEPTO') {
-              // Si es Antonia Ventas: 750px (MODIFICADO). Si no, 1200px.
-              w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '750px' : '1200px';
+          let align = 'left';
+
+          if (up === 'CONCEPTO' || up.includes('DESCRIP')) { 
+              w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '750px' : '500px'; 
           }
-          // -------------------------------------
-          
+          else if (isCol(h, ['ESPECIALIDAD', 'AREA', 'DEPTO'])) { w = '50px'; fs = '11px'; } 
+          else if (isCol(h, ['ID', 'FOLIO'])) { w = '40px'; fs = '10px'; align = 'center'; } 
+          else if (up.includes('CUMPLIMIENTO')) { w = '50px'; align = 'center'; fs = '11px'; }
+          else if (up.includes('ARCHIVO') || up.includes('CLIP')) { w = '40px'; align = 'center'; }
+          else if (up === 'SEMANA') { w = '50px'; align = 'center'; }
           else if (up === 'HORA') { w = '50px'; fs = '10px'; }
           else if (up === 'FECHA ESTIMADA DE FIN') { w = '75px'; fs = '10px'; }
           else if (up === 'HORA ESTIMADA DE FIN') { w = '60px'; fs = '10px'; }
           else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } 
           else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; }
-          // REQUISITOR MAS PEQUEÑO
           else if (up === 'REQUISITOR') { w = '90px'; fs = '11px'; }
-          else if (up === 'INFO CLIENTE') { w = '90px'; fs = '11px'; } // Nueva para Toñita
-          
-          else if (isCol(h, ['FOLIO','AREA','ALTA'])) w = '50px';
+          else if (up === 'INFO CLIENTE') { w = '90px'; fs = '11px'; } 
           else if (isCol(h, ['DIAS','RELOJ','CLASIFICACION'])) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
           else if (up.includes('AVANCE')) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
           else if (isCol(h, ['ESTATUS','STATUS'])) { w = '65px'; fs = '10px'; pad = '8px 1px'; }
@@ -784,7 +607,7 @@
           else if (up === 'VENDEDOR') { w = '75px'; fs = '10px'; }
           else if (up === 'CLIENTE') w = '200px';
           
-          return { width: w, fontSize: fs, padding: pad, overflow: 'hidden', textOverflow: 'ellipsis' };
+          return { width: w, fontSize: fs, padding: pad, textAlign: align, overflow: 'hidden', textOverflow: 'ellipsis' };
       };
       
       const getHeaderLabel = (h) => {
@@ -795,10 +618,8 @@
           return h;
       };
       
-      // Agregamos nuevas columnas a las de "Media" para que se comporten como archivos
       const isMediaColumn = (h) => ['F2','COTIZACION','COT','COTIZACIÓN','TIMEOUT','TIME OUT','LAYOUT','TIMELINE','REQUISITOR','INFO CLIENTE'].includes(String(h).toUpperCase());
-
-
+      
       const getTrafficStyle = (row) => {
           const t = String(row['CLASIFICACION']||'').trim().toUpperCase(); 
           const d = parseInt(row['DIAS']||row['RELOJ']||0);
@@ -809,253 +630,80 @@
           return {};
       };
 
-      // --- LOGICA DE SEMÁFORO PARA FECHA RESPUESTA ---
       const getFechaRespuestaStyle = (row) => {
           const startKey = Object.keys(row).find(k => ['FECHA','FECHA INICIO','FECHA DE INICIO'].includes(String(k).toUpperCase().trim()));
           const startDateVal = startKey ? row[startKey] : null;
           const style = { backgroundColor: '#ffc107', color: 'black' }; 
           if (!startDateVal) return style;
-
           let startDate = null;
-          if (typeof startDateVal === 'string') {
-              const parts = startDateVal.split('/');
-              if (parts.length === 3) {
-                   let y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-                   startDate = new Date(`${y}-${parts[1]}-${parts[0]}`);
-              }
-          } else if (startDateVal instanceof Date) {
-              startDate = startDateVal;
-          }
-
-          if (startDate && !isNaN(startDate.getTime())) {
-              const now = new Date();
-              const diff = now - startDate;
-              const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-              if (days > 3) {
-                  style.backgroundColor = '#dc3545'; 
-                  style.color = 'white';
-              }
-          }
+          if (typeof startDateVal === 'string') { const parts = startDateVal.split('/'); if (parts.length === 3) { let y = parts[2].length === 2 ? '20' + parts[2] : parts[2]; startDate = new Date(`${y}-${parts[1]}-${parts[0]}`); } } 
+          else if (startDateVal instanceof Date) { startDate = startDateVal; }
+          if (startDate && !isNaN(startDate.getTime())) { const diff = new Date() - startDate; if (Math.floor(diff / (1000 * 60 * 60 * 24)) > 3) { style.backgroundColor = '#dc3545'; style.color = 'white'; } }
           return style;
       };
 
-      // Función auxiliar para obtener número de semana
-      const getWeekNumber = (d) => {
-          if (!d) return '';
-          let date = new Date(d);
-          if (isNaN(date.getTime())) {
-             const parts = String(d).split('/');
-             if(parts.length===3) date = new Date(`20${parts[2]}-${parts[1]}-${parts[0]}`);
-          }
-          if (isNaN(date.getTime())) return '-';
-          date.setHours(0, 0, 0, 0);
-          date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-          const week1 = new Date(date.getFullYear(), 0, 4);
-          return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-      };
-
-      // ACCIONES
       const handleErr = (e) => { loggingIn.value=false; isSubmitting.value=false; Swal.fire('Error',e.message,'error'); };
       const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
-      const loadConfig = (r) => {
-         google.script.run.withSuccessHandler(d => {
-             config.value=d;
-             // AL CARGAR CONFIG, RECUPERAMOS BORRADOR SI EXISTE
-             if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') {
-                 google.script.run.withSuccessHandler(res => {
-                     if(res.success && res.data.length > 0) {
-                         activityQueue.value = res.data;
-                     }
-                 }).apiFetchDrafts();
-             }
-         }).getSystemConfig(r);
-      };
-      
+      const loadConfig = (r) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data; } }).apiFetchDrafts(); } }).getSystemConfig(r); };
       const toggleSidebar = () => { isCompact.value = !isCompact.value; };
       const logout = () => { isLoggedIn.value=false; loginPass.value=''; loginUser.value=''; currentView.value='DASHBOARD'; };
       const goHome = () => { currentView.value='DASHBOARD'; currentDept.value=''; currentModuleId.value=''; };
       const selectDept = (k) => { currentDept.value=k; currentView.value='DEPT'; searchQuery.value=''; currentModuleId.value=''; };
       const goBackToDept = () => currentView.value=staffTracker.value.previousView;
       
+      const loadWeeklyPlan = () => {
+          weeklyPlanData.value.isLoading = true;
+          google.script.run.withSuccessHandler(res => {
+              weeklyPlanData.value.isLoading = false;
+              if(res.success){ 
+                  weeklyPlanData.value.headers = res.headers; 
+                  weeklyPlanData.value.data = res.data; 
+                  selectedWeek.value = ''; // Resetear al cargar
+              }
+              else Swal.fire('Error', res.message, 'error');
+          }).apiFetchWeeklyPlanData();
+      };
+
+      const savePPCV3Row = (row) => {
+          const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+          Toast.fire({ icon: 'info', title: 'Guardando...' });
+          google.script.run.withSuccessHandler(res => {
+              if(res.success) Toast.fire({ icon: 'success', title: 'Actualizado' });
+              else Swal.fire('Error', res.message, 'error');
+          }).apiUpdatePPCV3(JSON.parse(JSON.stringify(row)));
+      };
+
       const openModule = (m) => { 
-          currentModuleId.value = m.id;
-          currentDept.value = ''; 
+          currentModuleId.value = m.id; currentDept.value = ''; 
           if(m.type==='mirror_staff') openStaffTracker({name:m.target}); 
-          else if(m.type==='ppc_native') {
-              currentView.value='PPC_FORM'; 
-              // Cargar historial al abrir modulo
-              google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData();
-          }
-          else if(m.type==='ppc_dynamic_view') {
-             currentView.value='PPC_DINAMICO'; 
-             dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' };
-             selectedResponsables.value = [];
-             uploadSuccess.value = false;
-          }
-          else if(m.type==='weekly_plan_view') {
-             currentView.value='WEEKLY_PLAN';
-             google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData();
-          }
+          else if(m.type==='ppc_native') { currentView.value='PPC_FORM'; google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData(); }
+          else if(m.type==='ppc_dynamic_view') { currentView.value='PPC_DINAMICO'; dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; }
+          else if(m.type==='weekly_plan_view') { currentView.value='WEEKLY_PLAN'; loadWeeklyPlan(); }
       };
+      
       const closeIframe = () => currentView.value='DASHBOARD';
-      
-      const openStaffTracker = (p) => {
-         staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true;
-         google.script.run.withSuccessHandler(res => { 
-             staffTracker.value.isLoading=false; 
-             if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } 
-             else Swal.fire('Error',res.message,'error'); 
-         }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name);
-      };
-      
+      const openStaffTracker = (p) => { staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true; google.script.run.withSuccessHandler(res => { staffTracker.value.isLoading=false; if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name); };
       const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
       const addNewRow = () => { if(!staffTracker.value.headers.length) return; const row={_isNew:true}; staffTracker.value.headers.forEach(h=>row[h]=""); staffTracker.value.data.unshift(row); };
-      const saveRow = (row) => { 
-          Swal.showLoading(); 
-          google.script.run.withSuccessHandler(res => { 
-              Swal.close(); 
-              if(res.success){ row._isNew=false; if(res.moved){ reloadStaffTracker(); Swal.fire({icon: 'success', title: 'Archivado', timer: 1000, showConfirmButton: false}); } else Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false}); } 
-              else Swal.fire('Error', res.message, 'error'); 
-          }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); 
-      };
-
+      const saveRow = (row) => { Swal.showLoading(); google.script.run.withSuccessHandler(res => { Swal.close(); if(res.success){ row._isNew=false; if(res.moved){ reloadStaffTracker(); Swal.fire({icon: 'success', title: 'Archivado', timer: 1000, showConfirmButton: false}); } else Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false}); } else Swal.fire('Error', res.message, 'error'); }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); };
       const openCellUpload = (row, col) => { uploadingCell.value = {row, col}; cellFileInput.value.click(); };
-      
-      // MODIFICADO: SOPORTE PARA MULTIPLES ARCHIVOS (INFO CLIENTE)
-      const handleCellFile = (e) => {
-          const file = e.target.files[0]; if(!file || !uploadingCell.value.row) return; Swal.showLoading();
-          const r = new FileReader();
-          r.onload = (ev) => { 
-              google.script.run.withSuccessHandler(res => { 
-                  if(res.success){ 
-                      // SI ES INFO CLIENTE, AGREGAMOS EL LINK (APPEND) NO SOBRESCRIBIMOS
-                      const colName = String(uploadingCell.value.col).toUpperCase();
-                      if (colName === 'INFO CLIENTE') {
-                          const currentVal = uploadingCell.value.row[uploadingCell.value.col] || '';
-                          // Separamos por newline si ya hay valor
-                          uploadingCell.value.row[uploadingCell.value.col] = currentVal ? currentVal + '\n' + res.fileUrl : res.fileUrl;
-                      } else {
-                          // OTROS CAMPOS: SOBRESCRIBIR (Comportamiento normal)
-                          uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; 
-                      }
-                      saveRow(uploadingCell.value.row); 
-                  } else Swal.fire('Error', res.message, 'error'); 
-                  e.target.value = null; 
-              }).uploadFileToDrive(ev.target.result, file.type, file.name); 
-          };
-          r.readAsDataURL(file);
-      };
-
+      const handleCellFile = (e) => { const file = e.target.files[0]; if(!file || !uploadingCell.value.row) return; Swal.showLoading(); const r = new FileReader(); r.onload = (ev) => { google.script.run.withSuccessHandler(res => { if(res.success){ const colName = String(uploadingCell.value.col).toUpperCase(); if (colName === 'INFO CLIENTE') { const currentVal = uploadingCell.value.row[uploadingCell.value.col] || ''; uploadingCell.value.row[uploadingCell.value.col] = currentVal ? currentVal + '\n' + res.fileUrl : res.fileUrl; } else { uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; } saveRow(uploadingCell.value.row); } else Swal.fire('Error', res.message, 'error'); e.target.value = null; }).uploadFileToDrive(ev.target.result, file.type, file.name); }; r.readAsDataURL(file); };
       const addResponsable = (n) => { selectedResponsables.value.push(n); staffSearch.value=''; };
       const openFileDialog = () => fileInput.value.click();
-      const handleFileSelect = (e) => { 
-          const file = e.target.files[0]; if(!file) return; 
-          
-          if(currentView.value === 'PPC_DINAMICO') {
-              isUploadingFile.value=true;
-              const r = new FileReader(); 
-              r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{
-                  isUploadingFile.value=false;
-                  if(res.success){ uploadSuccess.value=true; dynamicPpc.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success'); }
-              }).uploadFileToDrive(ev.target.result,file.type,file.name); 
-              r.readAsDataURL(file);
-          } else {
-              isUploadingFile.value=true; 
-              const r = new FileReader(); 
-              r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true;ppcData.value.archivoUrl=res.fileUrl;}}).uploadFileToDrive(ev.target.result,file.type,file.name); 
-              r.readAsDataURL(file); 
-          }
-      };
-      
+      const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
       const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
-      
-      const confirmAddToQueue = () => {
-          const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos;
-          item.clasificacion = extraData.value.clasificacion; // Capturar clasificacion del modal
-          let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp;
-          
-          item.fechaAlta = new Date().toISOString(); // GUARDAMOS FECHA DE CREACION
-
-          activityQueue.value.push(item); 
-          ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios='';
-          selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false;
-          // SYNC CADA VEZ QUE AGREGAMOS
-          syncQueueToBackend();
-      };
-      
-      const syncQueueToBackend = () => {
-         google.script.run.withSuccessHandler(() => console.log('Drafts synced')).apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value)));
-      };
-      
-      const saveDynamicPPC = () => {
-          if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos obligatorios','','warning');
-          isSubmitting.value = true;
-          let fResp = dynamicPpc.value.fechaFin; 
-          if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; }
-
-          const payload = {
-              especialidad: dynamicPpc.value.especialidad,
-              concepto: dynamicPpc.value.concepto,
-              responsable: selectedResponsables.value.join(','),
-              clasificacion: dynamicPpc.value.clasificacion,
-              riesgos: dynamicPpc.value.riesgos,
-              prioridad: dynamicPpc.value.prioridad,
-              fechaRespuesta: fResp, 
-              archivoUrl: dynamicPpc.value.archivoUrl,
-              comentarios: dynamicPpc.value.comentarios,
-              horas: '', cumplimiento: 'NO' 
-          };
-
-          google.script.run.withSuccessHandler(res => {
-              isSubmitting.value = false;
-              if(res.success){
-                  Swal.fire('Registro Guardado','Enviado a PPC y Tracker','success');
-                  dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' };
-                  selectedResponsables.value = [];
-                  uploadSuccess.value = false;
-              } else {
-                  Swal.fire('Error', res.message, 'error');
-              }
-          }).withFailureHandler(handleErr).apiSavePPCData([payload]);
-      };
-
-      const submitBatch = () => { 
-        isSubmitting.value=true; 
-        google.script.run.withSuccessHandler(res => { 
-          isSubmitting.value=false; 
-          if(res.success){ 
-              Swal.fire('Guardado','','success'); 
-              // No borramos la cola visual, ni la persistencia
-              google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData();
-          } else Swal.fire('Error',res.message,'error'); 
-        }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); 
-      };
-
-      const clearQueue = () => {
-        Swal.fire({
-          title: '¿Limpiar tabla?',
-          text: "Esto borrará los datos del formulario (no del historial).",
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#d33',
-          cancelButtonColor: '#3085d6',
-          confirmButtonText: 'Sí, limpiar'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            activityQueue.value = [];
-            google.script.run.withSuccessHandler(() => Swal.fire('Limpio', 'Formulario reiniciado.', 'success')).apiClearDrafts();
-          }
-        });
-      };
-      
+      const confirmAddToQueue = () => { const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos; item.clasificacion = extraData.value.clasificacion; let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); };
+      const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
+      const saveDynamicPPC = () => { if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); isSubmitting.value = true; let fResp = dynamicPpc.value.fechaFin; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } const payload = { especialidad: dynamicPpc.value.especialidad, concepto: dynamicPpc.value.concepto, responsable: selectedResponsables.value.join(','), clasificacion: dynamicPpc.value.clasificacion, riesgos: dynamicPpc.value.riesgos, prioridad: dynamicPpc.value.prioridad, fechaRespuesta: fResp, archivoUrl: dynamicPpc.value.archivoUrl, comentarios: dynamicPpc.value.comentarios, horas: '', cumplimiento: 'NO' }; google.script.run.withSuccessHandler(res => { isSubmitting.value = false; if(res.success){ Swal.fire('Registro Guardado','Enviado a PPC y Tracker','success'); dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; } else { Swal.fire('Error', res.message, 'error'); } }).withFailureHandler(handleErr).apiSavePPCData([payload]); };
+      const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
+      const clearQueue = () => { Swal.fire({ title: '¿Limpiar tabla?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí' }).then((result) => { if (result.isConfirmed) { activityQueue.value = []; google.script.run.apiClearDrafts(); } }); };
       const toIsoDate = (val) => { if (!val) return ''; const parts = String(val).split('/'); if (parts.length === 3) { let y = parts[2]; if (y.length === 2) y = '20' + y; return `${y}-${parts[1]}-${parts[0]}`; } return ''; };
       const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
       const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
       
-      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, getWeekNumber, syncQueueToBackend, isCompact, toggleSidebar };
+      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData };
     }
   });
-
   app.config.errorHandler = (err) => { console.error(err); Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
   app.mount('#app');
 </script>
