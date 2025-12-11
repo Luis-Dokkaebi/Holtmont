@@ -1,671 +1,711 @@
-/**
- * ======================================================================
- * HOLTMONT WORKSPACE V128 - SCRIPTMASTER EDITION
- * Optimizado: Batch Write, Smart Headers, KPI Dashboard Support
- * ======================================================================
- */
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holtmont V131</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-const SS = SpreadsheetApp.getActiveSpreadsheet();
-
-// --- CONFIGURACIÓN ---
-const APP_CONFIG = {
-  folderIdUploads: "", 
-  ppcSheetName: "PPCV3",          // Historial Maestro / Planeación Semanal
-  draftSheetName: "PPC_BORRADOR", // Borrador persistente
-  salesSheetName: "Datos",
-  logSheetName: "LOG_SISTEMA"
-};
-
-// USUARIOS
-const USER_DB = {
-  "LUIS_CARLOS":    { pass: "admin2025", role: "ADMIN", label: "Administrador" },
-  "JESUS_GARZA":    { pass: "ppc2025",   role: "PPC_ADMIN", label: "PPC Manager" },
-  "ANTONIA_VENTAS": { pass: "tonita2025", role: "TONITA", label: "Ventas" },
-  "JAIME_OLIVO":    { pass: "admin2025", role: "ADMIN_CONTROL", label: "Jaime Olivo" },
-  "ANGEL_SALINAS":  { pass: "angel2025", role: "ANGEL_USER", label: "Angel Salinas" }
-};
-
-/* SERVICIO HTML */
-function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Holtmont Workspace')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-}
-
-/* HELPERS */
-function findSheetSmart(name) {
-  if (!name) return null;
-  let sheet = SS.getSheetByName(name);
-  if (sheet) return sheet;
-  const clean = String(name).trim().toUpperCase();
-  const all = SS.getSheets();
-  for (let s of all) { if (s.getName().trim().toUpperCase() === clean) return s; }
-  return null;
-}
-
-// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster)
-function findHeaderRow(values) {
-  for (let i = 0; i < Math.min(100, values.length); i++) {
-    const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
+  <style>
+    :root { --sidebar-w: 260px; --sidebar-mini: 65px; --primary: #1c1c1c; --accent: #3699ff; --bg-body: #f3f6f9; }
+    body { font-family: 'Roboto', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; font-size: 13px; }
     
-    // 1. Tracker Estandar
-    if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO")) return i;
-    
-    // 2. Staff Antiguo
-    if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE")) return i;
-    
-    // 3. CASO PPCV3 (Flexible): Acepta ID o FOLIO + DESCRIPCION o RESPONSABLE
-    if ((rowStr.includes("FOLIO") || rowStr.includes("ID")) && 
-        (rowStr.includes("DESCRIPCI") || rowStr.includes("RESPONSABLE") || rowStr.includes("CONCEPTO"))) {
-      return i;
+    .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); overflow: hidden; position: relative; transition: margin-left 0.3s; }
+    .view-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 20px; width: 100%; box-sizing: border-box; }
+
+    /* TABLA EXCEL */
+    .excel-container { 
+        flex: 1; overflow: auto; background: white; border: 1px solid #999; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%;
+        scrollbar-width: thin; scrollbar-color: #a0a0a0 #f1f1f1;
     }
+    .excel-container::-webkit-scrollbar { height: 14px; width: 14px; }
+    .excel-container::-webkit-scrollbar-track { background: #f1f1f1; }
+    .excel-container::-webkit-scrollbar-thumb { background: #888; border-radius: 7px; border: 3px solid #f1f1f1; }
+    .excel-container::-webkit-scrollbar-thumb:hover { background: #555; }
 
-    // 4. Ventas
-    if (rowStr.includes("CLIENTE") && (rowStr.includes("VENDEDOR") || rowStr.includes("AREA"))) return i;
-  }
-  return -1;
-}
-
-function logSystemEvent(user, action, details) {
-  try {
-    let sheet = SS.getSheetByName(APP_CONFIG.logSheetName);
-    if (!sheet) {
-      sheet = SS.insertSheet(APP_CONFIG.logSheetName);
-      sheet.appendRow(["FECHA", "USUARIO", "ACCION", "DETALLES"]);
+    .table-excel { width: max-content; min-width: 100%; border-collapse: collapse; background-color: #fff; table-layout: fixed; }
+    .table-excel th { 
+        background-color: #e6e6e6; color: #000; font-weight: 700; text-align: center; 
+        border: 1px solid #999; padding: 8px 4px; font-size: 12px; 
+        position: sticky; top: 0; z-index: 20; white-space: nowrap; box-shadow: 0 1px 0 #999; 
     }
-    sheet.appendRow([new Date(), user, action, details]);
-  } catch (e) { console.error(e); }
-}
-
-/* LOGIN */
-function apiLogin(username, password) {
-  const userKey = String(username).trim().toUpperCase();
-  const user = USER_DB[userKey];
-  if (user && user.pass === password) {
-    logSystemEvent(userKey, "LOGIN", `Acceso exitoso (${user.role})`);
-    return { success: true, role: user.role, name: user.label, username: userKey };
-  }
-  logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
-  return { success: false, message: 'Usuario o contraseña incorrectos.' };
-}
-
-function getSystemConfig(role) {
-  const fullDirectory = [
-    { name: "ANTONIA_VENTAS", dept: "VENTAS" }, 
-    { name: "JUDITH ECHAVARRIA", dept: "VENTAS" },
-    { name: "EDUARDO MANZANARES", dept: "VENTAS" },
-    { name: "RAMIRO RODRIGUEZ", dept: "VENTAS" },
-    { name: "SEBASTIAN PADILLA", dept: "VENTAS" },
-    { name: "CESAR GOMEZ", dept: "VENTAS" },
-    { name: "ALFONSO CORREA", dept: "VENTAS" },
-    { name: "TERESA GARZA", dept: "VENTAS" },
-    { name: "GUILLERMO DAMICO", dept: "VENTAS" },
-    { name: "ANGEL SALINAS", dept: "VENTAS" },
-    { name: "JUAN JOSE SANCHEZ", dept: "VENTAS" },
-    { name: "LUIS CARLOS", dept: "ADMINISTRACION" },
-    { name: "ANTONIO SALAZAR", dept: "ADMINISTRACION" },
-    { name: "ROCIO CASTRO", dept: "ADMINISTRACION" },
-    { name: "DANIA GONZALEZ", dept: "ADMINISTRACION" },
-    { name: "JUANY RODRIGUEZ", dept: "ADMINISTRACION" },
-    { name: "LAURA HUERTA", dept: "ADMINISTRACION" },
-    { name: "LILIANA MARTINEZ", dept: "ADMINISTRACION" },
-    { name: "DANIELA CASTRO", dept: "ADMINISTRACION" },
-    { name: "EDUARDO BENITEZ", dept: "ADMINISTRACION" },
-    { name: "ANTONIO CABRERA", dept: "ADMINISTRACION" },
-    { name: "ADMINISTRADOR", dept: "ADMINISTRACION" }, 
-    { name: "EDUARDO MANZANARES", dept: "HVAC" },
-    { name: "JUAN JOSE SANCHEZ", dept: "HVAC" },
-    { name: "SELENE BALDONADO", dept: "HVAC" },
-    { name: "ROLANDO MORENO", dept: "HVAC" },
-    { name: "MIGUEL GALLARDO", dept: "ELECTROMECANICA" },
-    { name: "SEBASTIAN PADILLA", dept: "ELECTROMECANICA" },
-    { name: "JEHU MARTINEZ", dept: "ELECTROMECANICA" },
-    { name: "MIGUEL GONZALEZ", dept: "ELECTROMECANICA" },
-    { name: "ALICIA RIVERA", dept: "ELECTROMECANICA" },
-    { name: "RICARDO MENDO", dept: "CONSTRUCCION" },
-    { name: "CARLOS MENDEZ", dept: "CONSTRUCCION" },
-    { name: "REYNALDO GARCIA", dept: "CONSTRUCCION" },
-    { name: "INGE OLIVO", dept: "CONSTRUCCION" },
-    { name: "EDUARDO TERAN", dept: "CONSTRUCCION" },
-    { name: "EDGAR HOLT", dept: "CONSTRUCCION" },
-    { name: "ALEXIS TORRES", dept: "CONSTRUCCION" },
-    { name: "TERESA GARZA", dept: "CONSTRUCCION" },
-    { name: "RAMIRO RODRIGUEZ", dept: "CONSTRUCCION" },
-    { name: "GUILLERMO DAMICO", dept: "CONSTRUCCION" },
-    { name: "RUBEN PESQUEDA", dept: "CONSTRUCCION" },
-    { name: "JUDITH ECHAVARRIA", dept: "COMPRAS" },
-    { name: "GISELA DOMINGUEZ", dept: "COMPRAS" },
-    { name: "VANESSA DE LARA", dept: "COMPRAS" },
-    { name: "NELSON MALDONADO", dept: "COMPRAS" },
-    { name: "VICTOR ALMACEN", dept: "COMPRAS" }, 
-    { name: "DIMAS RAMOS", dept: "EHS" },
-    { name: "CITLALI GOMEZ", dept: "EHS" },
-    { name: "AIMEE RAMIREZ", dept: "EHS" },
-    { name: "EDGAR HOLT", dept: "MAQUINARIA" },
-    { name: "ALEXIS TORRES", dept: "MAQUINARIA" },
-    { name: "ANGEL SALINAS", dept: "DISEÑO" },
-    { name: "EDGAR HOLT", dept: "DISEÑO" },
-    { name: "EDGAR LOPEZ", dept: "DISEÑO" }
-  ];
-
-  const allDepts = {
-      "CONSTRUCCION": { label: "Construcción", icon: "fa-hard-hat", color: "#e83e8c" },
-      "COMPRAS": { label: "Compras/Almacén", icon: "fa-shopping-cart", color: "#198754" },
-      "EHS": { label: "Seguridad (EHS)", icon: "fa-shield-alt", color: "#dc3545" },
-      "DISEÑO": { label: "Diseño & Ing.", icon: "fa-drafting-compass", color: "#0d6efd" },
-      "ELECTROMECANICA": { label: "Electromecánica", icon: "fa-bolt", color: "#ffc107" },
-      "HVAC": { label: "HVAC", icon: "fa-fan", color: "#fd7e14" },
-      "ADMINISTRACION": { label: "Administración", icon: "fa-briefcase", color: "#6f42c1" },
-      "VENTAS": { label: "Ventas", icon: "fa-handshake", color: "#0dcaf0" },
-      "MAQUINARIA": { label: "Maquinaria", icon: "fa-truck", color: "#20c997" }
-  };
-
-  if (role === 'TONITA') return { departments: { "VENTAS": allDepts["VENTAS"] }, allDepartments: allDepts, staff: [ { name: "ANTONIA_VENTAS", dept: "VENTAS" } ], directory: fullDirectory, specialModules: [] };
-
-  const ppcModules = [
-      { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" },
-      { id: "WEEKLY_PLAN", label: "Planeación Semanal", icon: "fa-calendar-alt", color: "#6f42c1", type: "weekly_plan_view" }
-  ];
-
-  if (role === 'PPC_ADMIN') return { departments: {}, allDepartments: allDepts, staff: [], directory: fullDirectory, specialModules: ppcModules };
-
-  if (role === 'ADMIN_CONTROL') {
-    return {
-      departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
-      specialModules: [
-        { id: "PPC_DINAMICO", label: "Tracker", icon: "fa-layer-group", color: "#e83e8c", type: "ppc_dynamic_view" },
-        ...ppcModules,
-        { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" },
-        { id: "ADMIN_TRACKER", label: "Control", icon: "fa-clipboard-list", color: "#6f42c1", type: "mirror_staff", target: "ADMINISTRADOR" }
-      ]
-    };
-  }
-
-  if (role === 'ANGEL_USER') {
-    return {
-      departments: { "DISEÑO": allDepts["DISEÑO"], "VENTAS": allDepts["VENTAS"] },
-      allDepartments: allDepts, staff: [ { name: "ANGEL SALINAS", dept: "DISEÑO" } ], directory: fullDirectory,
-      specialModules: [{ id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#0d6efd", type: "mirror_staff", target: "ANGEL SALINAS" }]
-    };
-  }
-
-  // ADMIN
-  return {
-    departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
-    specialModules: [ ...ppcModules, { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" } ]
-  };
-}
-
-/* 5. LECTURA DE DATOS STAFF */
-function apiFetchStaffTrackerData(personName) {
-  try {
-    const sheet = findSheetSmart(personName);
-    if (!sheet) return { success: true, data: [], history: [], headers: [], message: `Falta hoja: ${personName}` };
-    const values = sheet.getDataRange().getValues();
-    if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
+    .table-excel td { border: 1px solid #b2b2b2 !important; padding: 0; margin: 0; height: 30px; vertical-align: middle; position: relative; } 
     
-    const headerRowIndex = findHeaderRow(values);
-    if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-    
-    const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
-    const validIndices = [];
-    const cleanHeaders = [];
-    rawHeaders.forEach((h, index) => {
-      if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
-    });
-
-    const dataRows = values.slice(headerRowIndex + 1);
-    const activeTasks = [];
-    const historyTasks = [];
-    let isReadingHistory = false;
-
-    for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i];
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
-      if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-
-      let rowObj = {};
-      let hasData = false;
-      let sortDate = null;
-
-      validIndices.forEach((colIndex, k) => {
-        const headerName = cleanHeaders[k];
-        let val = row[colIndex];
-        if (val instanceof Date) {
-           if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
-           else {
-              if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
-           }
-        } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
-        }
-        if (val !== "" && val !== undefined) hasData = true;
-        rowObj[headerName] = val;
-      });
-
-      if (hasData) {
-        rowObj['_sortDate'] = sortDate;
-        rowObj['_rowIndex'] = headerRowIndex + i + 2;
-        if (isReadingHistory) historyTasks.push(rowObj); else activeTasks.push(rowObj);
-      }
+    .excel-input { 
+        width: 100%; min-height: 28px; height: 100%; border: none; padding: 4px 6px; outline: none; 
+        font-size: 12px; background: transparent; display: block; font-family: inherit; 
+        line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: clip; 
     }
+    .excel-input:focus { outline: 2px solid #107c41; outline-offset: -2px; z-index: 2; position: relative; background: white; }
+    .input-row { background-color: #f8f9fa; border-bottom: 2px solid #107c41; } 
+    .row-num { background-color: #e6e6e6; text-align: center; color: #333; font-weight: bold; width: 40px; border-right: 3px solid #ccc !important; }
+
+    /* MINI DASHBOARD */
+    .mini-table { width: auto !important; min-width: 0 !important; border: none; }
+    .mini-table th { padding: 5px 6px; font-size: 11px; height: auto; line-height: 1.2; border: 1px solid #999; text-align: center; white-space: nowrap; background-color: #e6e6e6; }
+    .mini-table td { height: auto; font-size: 11px; padding: 4px 6px; line-height: 1.2; border: 1px solid #ccc; }
+    .mini-table .total-row td { background-color: #333; color: white; font-weight: bold; border-top: 2px solid #555 !important; }
+
+    /* DYNAMIC TRACKER */
+    .dynamic-tracker { background-color: #f4f6f8 !important; color: #333; flex:1; display:flex; flex-direction:column; padding:0 !important; overflow-y:auto; }
+    .dynamic-form-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 960px; width: 100%; margin: 0 auto; }
+    .dynamic-input { background: #ffffff; border: 1px solid #ced4da; color: #333; padding: 8px 12px; border-radius: 4px; width: 100%; font-size: 13px; transition: border-color 0.2s; }
+    .dynamic-input:focus { outline: none; border-color: #e83e8c; box-shadow: 0 0 0 2px rgba(232, 62, 140, 0.1); }
+    .dynamic-label { font-size: 11px; font-weight: 700; color: #637381; margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+    .chip-option { cursor: pointer; padding: 6px 14px; border-radius: 15px; background: #f1f3f5; border: 1px solid #dee2e6; color: #495057; font-size: 11px; margin-right: 6px; display: inline-block; transition: all 0.2s; font-weight: 500; }
+    .chip-option:hover { background: #e9ecef; border-color: #ced4da; }
+    .chip-option.selected { background: #e83e8c; color: white; border-color: #e83e8c; box-shadow: 0 2px 5px rgba(232, 62, 140, 0.3); }
+
+    /* LAYOUT & SIDEBAR */
+    .app-wrapper { display: flex; height: 100vh; width: 100vw; }
+    .sidebar { width: var(--sidebar-w); background: var(--primary); color: #a2a3b7; display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative; z-index: 1050; white-space: nowrap; overflow: hidden; flex-shrink: 0; }
+    .sidebar.compact { width: var(--sidebar-mini); }
+    .sidebar.compact:hover { width: var(--sidebar-w); box-shadow: 5px 0 15px rgba(0,0,0,0.3); }
+
+    .brand { height: 70px; display: flex; align-items: center; padding: 0 20px; font-weight: bold; color: white; justify-content: space-between; }
+    .menu { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 0; }
+    .nav-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; color: #a2a3b7; transition: 0.2s; height: 45px; }
+    .nav-item:hover { color: white; background: rgba(255,255,255,0.03); }
+    .nav-item.active { background: #1b1b29; color: var(--accent); } 
+    .nav-icon-col { width: 25px; text-align: center; margin-right: 15px; display: flex; justify-content: center; }
+    .nav-text { transition: opacity 0.2s; opacity: 1; }
+    .sidebar.compact:not(:hover) .nav-text, .sidebar.compact:not(:hover) .brand-text, .sidebar.compact:not(:hover) .section-title { opacity: 0; pointer-events: none; display: none; }
+    .sidebar.compact:not(:hover) .nav-item { padding: 12px 0; justify-content: center; }
+    .sidebar.compact:not(:hover) .nav-icon-col { margin-right: 0; }
+    .sidebar.compact:not(:hover) .brand { justify-content: center; padding: 0; }
+    .sidebar.compact:not(:hover) .btn-toggle-sidebar { margin: 0; }
+    .section-title { padding: 15px 20px 5px; font-size: 0.7rem; color: #555; font-weight: bold; white-space: nowrap; }
+    .top-bar { height: 70px; background: white; border-bottom: 1px solid #eff2f5; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
     
-    const dateSorter = (a, b) => {
-      const dA = a['_sortDate'] instanceof Date ? a['_sortDate'].getTime() : 0;
-      const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
-      return dB - dA;
-    };
-    return { success: true, data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), headers: cleanHeaders };
-  } catch (e) { return { success: false, message: e.toString() }; }
-}
-
-/**
- * ======================================================================
- * OPTIMIZACIÓN SCRIPTMASTER: ESCRITURA QUIRÚRGICA E INTELIGENTE
- * Detecta si es un solo cambio para escribir solo esa fila.
- * ======================================================================
- */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
-  if (!tasksArray || tasksArray.length === 0) return { success: true };
-
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
-
-  try {
-    const sheet = findSheetSmart(sheetName);
-    if (!sheet) return { success: false, message: "Hoja no encontrada: " + sheetName };
-
-    // Leemos datos para mapear
-    const dataRange = sheet.getDataRange();
-    let values = dataRange.getValues();
-    if (values.length === 0) return { success: false, message: "Hoja vacía" };
-
-    const headerRowIndex = findHeaderRow(values);
-    if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
-
-    const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
-    const colMap = {};
-    headers.forEach((h, i) => colMap[h] = i);
-
-    const getColIdx = (key) => {
-      const k = key.toUpperCase();
-      if (colMap[k] !== undefined) return colMap[k];
-      const aliases = {
-        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO'],
-        'CONCEPTO': ['CONCEPTO', 'DESCRIPCION', 'DESCRIPCIÓN DE LA ACTIVIDAD'],
-        'RESPONSABLE': ['RESPONSABLE', 'INVOLUCRADOS'],
-        'RELOJ': ['RELOJ', 'HORAS', 'DIAS'],
-        'ESTATUS': ['ESTATUS', 'STATUS'],
-        'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'] // Alias crítico
-      };
-      for (let main in aliases) {
-        if (aliases[main].includes(k)) {
-             for(let alias of aliases[main]) if(colMap[alias] !== undefined) return colMap[alias];
-        }
-      }
-      return -1;
-    };
-
-    const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
-    let singleRowIndex = -1; // Para optimización
-
-    tasksArray.forEach(task => {
-      let rowIndex = -1;
-
-      // Usamos el índice de fila si viene del frontend (Más seguro y rápido)
-      if (task._rowIndex) {
-        rowIndex = parseInt(task._rowIndex) - 1; // Ajuste a base 0
-      } else {
-        // Búsqueda fallback por ID
-        const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
-        for (let i = headerRowIndex + 1; i < values.length; i++) {
-           const row = values[i];
-           if (folioIdx > -1 && String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
-        }
-      }
-
-      if (rowIndex > -1 && rowIndex < values.length) {
-        // UPDATE en memoria
-        Object.keys(task).forEach(key => {
-          if (key.startsWith('_')) return;
-          const cIdx = getColIdx(key);
-          if (cIdx > -1) values[rowIndex][cIdx] = task[key];
-        });
-        singleRowIndex = rowIndex;
-      }
-    });
-
-    // --- ESCRITURA OPTIMIZADA (QUIRÚRGICA) ---
-    // Si solo modificamos una fila, escribimos SOLO esa fila.
-    if (tasksArray.length === 1 && singleRowIndex > -1) {
-       // Escribimos en (FilaReal, Columna 1, 1 Fila, AnchoTotal)
-       sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
-    } else {
-       // Si son muchos cambios, escribimos todo el bloque (Batch tradicional)
-       sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
-    }
+    /* COMPONENTES */
+    .login-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: #1c1c1c; padding: 40px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: #eee; position: relative; overflow: hidden; }
+    .login-logo { max-width: 85%; height: auto; margin-bottom: 25px; mask-image: radial-gradient(ellipse at center, black 40%, transparent 100%); }
+    .dept-card, .staff-card { background: white; border-radius: 12px; box-shadow: 0 0 20px 0 rgba(0,0,0,0.03); padding: 20px; text-align: center; cursor: pointer; transition: 0.3s; }
+    .dept-card:hover, .staff-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+    .chip-container { border: 1px solid #ccc; background: white; padding: 2px; display: flex; flex-wrap: wrap; gap: 2px; min-height: 100%; align-items: center; }
+    .user-chip { background: #e8f0fe; border: 1px solid #d2e3fc; border-radius: 4px; padding: 0 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .file-input-hidden { display: none; } 
+    .btn-attach { border: 1px solid #ccc; background: #f8f9fa; color: #666; padding: 4px 10px; font-size: 12px; border-radius: 4px; cursor: pointer; }
+    .btn-attach.has-file { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+    .iframe-container { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: white; display: flex; flex-direction: column; }
+    .iframe-toolbar { height: 45px; background: #333; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
+    iframe { flex: 1; width: 100%; border: none; }
     
-    return { success: true };
+    /* MODAL */
+    .custom-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; display: flex; align-items: center; justify-content: center; }
+    .custom-modal { background: white; width: 400px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); overflow: hidden; }
+    .custom-modal-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #dee2e6; font-weight: bold; display: flex; justify-content: space-between; }
+    .custom-modal-body { padding: 20px; }
+    .custom-modal-footer { padding: 15px; background: #f8f9fa; border-top: 1px solid #dee2e6; text-align: right; }
+    .chip-select { cursor: pointer; padding: 6px 12px; border-radius: 20px; background: #f1f3f5; color: #495057; font-size: 11px; margin-right: 5px; margin-bottom: 5px; display: inline-block; border: 1px solid #dee2e6; transition: 0.2s; font-weight: 500; }
+    .chip-select.active { background: #3699ff; color: white; border-color: #3699ff; box-shadow: 0 2px 5px rgba(54, 153, 255, 0.3); }
+  </style>
+</head>
+<body>
 
-  } catch (e) {
-    console.error(e);
-    return { success: false, message: e.toString() };
-  } finally {
-    lock.releaseLock();
-  }
-}
+<div id="app">
+  <div v-if="!isLoggedIn" class="login-overlay">
+    <div class="login-card">
+      <img src="https://drive.google.com/thumbnail?id=1tmNuwauWNjOhv0JwX6ug9pzvsrBCNX7z&sz=w1000" class="login-logo" alt="Logo">
+      <h3 class="fw-bold mb-4">BIENVENIDO</h3>
+      <p class="text-muted mb-4">Acceso Seguro</p>
+      <div class="mb-3">
+          <input type="text" v-model="loginUser" class="form-control text-center mb-2" placeholder="Usuario">
+          <input type="password" v-model="loginPass" class="form-control text-center" placeholder="Contraseña..." @keyup.enter="doLogin">
+      </div>
+      <button class="btn btn-success w-100 fw-bold" @click="doLogin" :disabled="loggingIn">
+        <span v-if="loggingIn">Conectando...</span><span v-else>INICIAR SESIÓN</span>
+      </button>
+    </div>
+  </div>
 
-// NUEVA FUNCIÓN PARA GUARDAR CAMBIOS DE PPCV3
-function apiUpdatePPCV3(taskData) {
-  return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]);
-}
+  <div v-if="isLoggedIn" class="app-wrapper">
+    <aside class="sidebar" :class="{ compact: isCompact }">
+      <div class="brand">
+          <span class="brand-text"><i class="fas fa-table me-2 text-primary"></i> HOLTMONT</span>
+          <button class="btn btn-sm btn-link text-secondary btn-toggle-sidebar" @click="toggleSidebar" title="Contraer/Expandir Menú">
+              <i class="fas fa-bars"></i>
+          </button>
+      </div>
+      <div class="menu">
+        <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome">
+            <div class="nav-icon-col"><i class="fas fa-th"></i></div>
+            <span class="nav-text">Dashboard</span>
+        </div>
+        
+        <div v-if="config.specialModules.length">
+            <div class="section-title">ACCIONES</div>
+            <div class="nav-item" v-for="m in config.specialModules" @click="openModule(m)" :class="{ active: currentModuleId === m.id }" :style="{ borderRight: currentModuleId === m.id ? '3px solid ' + m.color : '3px solid transparent' }">
+                <div class="nav-icon-col"><i class="fas" :class="m.icon" :style="{color: m.color}"></i></div>
+                <span class="nav-text" :style="{ color: currentModuleId === m.id ? 'white' : '#a2a3b7' }">{{m.label}}</span>
+            </div>
+        </div>
 
-// Wrapper para llamadas individuales
-function internalUpdateTask(personName, taskData) {
-    try {
-        const res = internalBatchUpdateTasks(personName, [taskData]);
-        if (personName === "ANTONIA_VENTAS") {
-             const distData = JSON.parse(JSON.stringify(taskData));
-             delete distData._rowIndex; 
-             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase() === "VENDEDOR");
-             if (vendedorKey && taskData[vendedorKey]) {
-                 try { internalBatchUpdateTasks(taskData[vendedorKey].trim(), [distData]); } catch(e){}
-             }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
-        }
-        return res;
-    } catch(e) { return {success:false, message:e.toString()}; }
-}
+        <div v-if="Object.keys(config.departments).length">
+            <div class="section-title">ÁREAS</div>
+            <div class="nav-item" v-for="(d,k) in config.departments" @click="selectDept(k)" :class="{ active: currentDept === k }" :style="{ borderRight: currentDept === k ? '3px solid ' + d.color : '3px solid transparent' }">
+                <div class="nav-icon-col"><i class="fas" :class="d.icon" :style="{ color: d.color }"></i></div>
+                <span class="nav-text" :style="{ color: currentDept === k ? 'white' : '#a2a3b7' }">{{d.label}}</span>
+            </div>
+        </div>
 
-function apiUpdateTask(personName, taskData) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) { 
-      try { return internalUpdateTask(personName, taskData); } 
-      finally { lock.releaseLock(); } 
-  }
-  return { success: false, message: "Ocupado." };
-}
+        <div class="mt-auto">
+            <div class="p-3">
+                <button class="btn btn-outline-secondary w-100 btn-sm" @click="logout" :title="isCompact ? 'Salir' : ''">
+                    <i class="fas fa-sign-out-alt" v-if="isCompact"></i>
+                    <span v-else>Salir</span>
+                </button>
+            </div>
+        </div>
+      </div>
+    </aside>
 
-// --- GESTIÓN DE BORRADORES ---
-function apiFetchDrafts() {
-  try {
-    const sheet = findSheetSmart(APP_CONFIG.draftSheetName);
-    if (!sheet) return { success: true, data: [] };
-    const rows = sheet.getDataRange().getValues();
-    if (rows.length < 1) return { success: true, data: [] }; 
-    const startRow = (rows[0][0] === "ESPECIALIDAD") ? 1 : 0;
-    const drafts = rows.slice(startRow).map(r => ({
-      especialidad: r[0], concepto: r[1], responsable: r[2], horas: r[3], cumplimiento: r[4],
-      archivoUrl: r[5], comentarios: r[6], comentariosPrevios: r[7], 
-      prioridades: r[8], riesgos: r[9], restricciones: r[10], fechaRespuesta: r[11], 
-      clasificacion: r[12], fechaAlta: r[13] 
-    })).filter(d => d.concepto);
-    return { success: true, data: drafts };
-  } catch(e) { return { success: false, message: e.toString() }; }
-}
+    <main class="content-wrapper">
+      <div class="top-bar">
+        <h6 class="m-0 fw-bold text-secondary">{{ pageTitle }}</h6>
+        <span class="badge bg-light text-dark border">{{ currentUser }}</span>
+      </div>
 
-function apiSyncDrafts(drafts) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
-    try {
-      let sheet = findSheetSmart(APP_CONFIG.draftSheetName);
-      if (!sheet) { sheet = SS.insertSheet(APP_CONFIG.draftSheetName); }
-      sheet.clear();
-      const headers = ["ESPECIALIDAD", "CONCEPTO", "RESPONSABLE", "HORAS", "CUMPLIMIENTO", "ARCHIVO", "COMENTARIOS", "PREVIOS", "PRIORIDAD", "RIESGOS", "RESTRICCIONES", "FECHA_RESP", "CLASIFICACION", "FECHA_ALTA"];
-      if (drafts && drafts.length > 0) {
-        const rows = drafts.map(d => [
-          d.especialidad || "", d.concepto || "", d.responsable || "", d.horas || "", d.cumplimiento || "NO",
-          d.archivoUrl || "", d.comentarios || "", d.comentariosPrevios || "",
-          d.prioridades || "", d.riesgos || "", d.restricciones || "", d.fechaRespuesta || "", 
-          d.clasificacion || "", d.fechaAlta || new Date() 
-        ]);
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
-      } else {
-        sheet.appendRow(headers);
-      }
-      return { success: true };
-    } catch(e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
-  }
-  return { success: false, message: "Ocupado syncing drafts" };
-}
+      <div class="view-area" v-if="!['IFRAME', 'MODULE_TABS'].includes(currentView)">
+        <div v-if="currentView === 'DASHBOARD'" class="row g-3">
+          <div class="col-md-4 col-lg-3" v-for="mod in config.specialModules" :key="mod.id">
+            <div class="dept-card" @click="openModule(mod)" :style="{borderTop: '4px solid '+mod.color}">
+                <i class="fas fa-2x mb-3" :class="mod.icon" :style="{color: mod.color}"></i>
+                <h6 class="fw-bold" :style="{color: mod.color}">{{mod.label}}</h6>
+            </div>
+          </div>
+          <div class="col-md-4 col-lg-3" v-for="(dept, key) in config.departments" :key="key">
+            <div class="dept-card" @click="selectDept(key)" :style="{borderTop: '4px solid '+dept.color}">
+                <i class="fas fa-2x mb-3" :class="dept.icon" :style="{color: dept.color}"></i>
+                <h6 class="fw-bold" :style="{color: dept.color}">{{dept.label}}</h6>
+            </div>
+          </div>
+        </div>
 
-function apiClearDrafts() {
-  try {
-    const sheet = findSheetSmart(APP_CONFIG.draftSheetName);
-    if(sheet) sheet.clear();
-    return { success: true };
-  } catch(e) { return { success: false }; }
-}
+        <div v-if="currentView === 'DEPT'">
+          <div class="d-flex justify-content-between mb-3"><button class="btn btn-light btn-sm border" @click="goHome">Atrás</button><input v-model="searchQuery" class="form-control form-control-sm w-auto" placeholder="Filtrar..."></div>
+          <div class="row g-2">
+            <div class="col-md-3" v-for="p in filteredStaff" :key="p.name">
+              <div class="staff-card h-100" @click="openStaffTracker(p)" :style="{borderTop: '4px solid ' + (currentDeptData.color || '#3699ff')}">
+                <div class="mb-2 fw-bold" :style="{color: currentDeptData.color || '#555'}" style="font-size:1.2rem">{{p.name.charAt(0)}}</div>
+                <div class="small fw-bold">{{p.name}}</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-// ======================================================================
-// FUNCION CRITICA OPTIMIZADA
-// REQUERIMIENTO: Enviar a Trabajador + Duplicar Admin + Guardar PPCV3
-// ======================================================================
-function apiSavePPCData(payload) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(20000)) { 
-    try {
-      const items = Array.isArray(payload) ? payload : [payload];
-      
-      let sheetPPC = findSheetSmart(APP_CONFIG.ppcSheetName);
-      if (!sheetPPC) { 
-        sheetPPC = SS.insertSheet(APP_CONFIG.ppcSheetName);
-        sheetPPC.appendRow(["ID", "Especialidad", "Descripción", "Responsable", "Fecha", "Reloj", "Cumplimiento", "Archivo", "Comentarios", "Comentarios Previos"]);
-      }
-      
-      const fechaHoy = new Date();
-      const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
-      
-      const rowsForPPC = [];
-      const tasksBySheet = {};
-      const addTaskToSheet = (sheetName, task) => {
-          if (!sheetName) return;
-          const key = sheetName.trim();
-          if (!tasksBySheet[key]) tasksBySheet[key] = [];
-          tasksBySheet[key].push(task);
-      };
-
-      items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+        <div v-if="currentView === 'STAFF_TRACKER'" class="h-100 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white border rounded">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light btn-sm border me-2" @click="goBackToDept"><i class="fas fa-arrow-left"></i></button>
+                <span class="small fw-bold me-2" :style="{color: currentDeptData.color || 'var(--primary)'}"><i class="fas fa-file-excel me-1"></i> {{ staffTracker.name }}</span>
+                <button class="btn btn-primary btn-sm py-0 px-2 me-1" @click="reloadStaffTracker" title="Actualizar"><i class="fas fa-sync-alt me-1"></i> Actualizar</button>
+                <button class="btn btn-success btn-sm py-0 px-2" @click="addNewRow" title="Agregar"><i class="fas fa-plus me-1"></i> Fila</button>
+            </div>
+            <div></div>
+          </div>
           
-          rowsForPPC.push([
-             id, 
-             item.especialidad, item.concepto, item.responsable, fechaHoy, 
-             item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, 
-             item.comentariosPrevios || ""
-          ]);
+          <div class="excel-container flex-fill mb-2">
+             <div v-if="staffTracker.isLoading" class="text-center p-5 text-muted">Cargando datos...</div>
+             <table v-else class="table-excel">
+                <thead>
+                  <tr>
+                    <th class="row-num">#</th>
+                    <th style="width:40px"><i class="fas fa-save"></i></th>
+                    <th v-for="(h, idx) in staffTracker.headers" :key="idx" :style="getColumnStyle(h)">
+                        {{ getHeaderLabel(h) }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                   <tr v-for="(row, i) in staffTracker.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                      <td class="row-num">{{i+1}}</td>
+                      <td class="text-center" style="background:#f8f9fa"><button class="btn btn-link btn-sm p-0 text-success" @click="saveRow(row)"><i class="fas fa-save"></i></button></td>
+                      
+                      <td v-for="(h, idx) in staffTracker.headers" :key="idx">
+                         <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-weight:bold; font-size:12px;">{{ row[h] ? String(row[h]).charAt(0).toUpperCase() : '' }}</div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="(dept, k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{dept.label}}</option></select>
+                         </div>
+                         <div v-else-if="isCol(h, ['VENDEDOR'])" style="position:relative; width:100%; height:100%; background-color:#f0fdf4;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">{{ row[h] ? String(row[h]).split(' ')[0] : '' }}</div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="s in salesStaff" :key="s" :value="s">{{s}}</option></select>
+                         </div>
+                         <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px; display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; height:100%;">
+                             <template v-if="row[h]">
+                                 <a v-for="(url, uIdx) in String(row[h]).split(/[\n\s]+/).filter(u => u.startsWith('http'))" :key="uIdx" :href="url" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:9px; margin-right:1px;" title="Ver archivo"><i class="fas fa-paperclip"></i></a>
+                             </template>
+                             <button class="btn btn-sm btn-light border py-0 px-1 text-secondary" @click="openCellUpload(row, h)" title="Subir archivo"><i class="fas fa-cloud-upload-alt" style="font-size:10px"></i></button>
+                         </div>
+                         <div v-else-if="isCol(h, ['CLASIFICACION'])" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:10px; font-weight:bold;">{{ row[h] }}</div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option></select>
+                         </div>
+                         <input v-else-if="isCol(h, ['DIAS','RELOJ'])" v-model="row[h]" style="text-align:center; font-weight:bold; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;" :style="getTrafficStyle(row)">
+                         <input v-else-if="String(h).toUpperCase().includes('AVANCE')" v-model="row[h]" style="text-align:center; font-weight:bold; color:#217346; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;">
+                         <input v-else-if="isCol(h, ['ESTATUS','STATUS'])" v-model="row[h]" style="text-align:center; font-weight:bold; font-size:10px; width:100%; height:100%; border:none; outline:none; padding:6px 1px; background:transparent;" class="excel-input">
+                         <div v-else-if="String(h).toUpperCase().includes('FECHA')" style="position:relative; width:100%; height:100%;" :style="isCol(h, ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FEC. EST. FIN', 'FECHA ESTIMADA DE FIN']) ? getFechaRespuestaStyle(row) : {}">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:4px; font-size:12px; pointer-events:none;">{{ formatDisplayDate(row[h]) }}</div>
+                             <input type="date" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" :value="toIsoDate(row[h])" @input="updateDateFromPicker($event, row, h)">
+                         </div>
+                         <input v-else v-model="row[h]" class="excel-input" spellcheck="false">
+                      </td>
+                   </tr>
+                </tbody>
+             </table>
+          </div>
+          <div class="excel-container flex-fill" v-if="staffTracker.history.length" style="max-height:30%">
+             <div class="sticky-top bg-light border-bottom px-2 small fw-bold text-muted">HISTORIAL</div>
+             <table class="table-excel"><tbody><tr v-for="(row, i) in staffTracker.history" :key="i"><td class="row-num">H{{i+1}}</td><td style="width:40px;text-align:center"><i class="fas fa-check text-muted small"></i></td><td v-for="(h, idx) in staffTracker.headers" :key="idx" :style="getColumnStyle(h)">{{row[h]}}</td></tr></tbody></table>
+          </div>
+        </div>
 
-          const taskData = {
-                 'FOLIO': id, 
-                 'CONCEPTO': item.concepto, 
-                 'CLASIFICACION': item.clasificacion || "Media", 
-                 'ALTA': item.especialidad, 
-                 'INVOLUCRADOS': item.responsable, 
-                 'FECHA': fechaStr,
-                 'RELOJ': item.horas, 
-                 'ESTATUS': "ASIGNADO", 
-                 'PRIORIDAD': item.prioridad || item.prioridades, 
-                 'RESTRICCIONES': item.restricciones, 
-                 'RIESGOS': item.riesgos, 
-                 'FECHA_RESPUESTA': item.fechaRespuesta, 
-                 'AVANCE': "0%"
-          };
-          // DUPLICADO EN ADMIN
-          addTaskToSheet("ADMINISTRADOR", taskData);
-          // DISTRIBUCION
-          const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
-          responsables.forEach(personName => {
-             addTaskToSheet(personName, taskData);
-          });
+        <div v-if="currentView === 'WEEKLY_PLAN'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <h5 class="m-0 text-primary fw-bold"><i class="fas fa-calendar-week me-2"></i>Planeación Semanal (PPCV3)</h5>
+                    
+                    <select v-model="selectedWeek" class="form-select form-select-sm" style="width: auto; font-weight: bold; border-color: #0d6efd;">
+                        <option value="">VER TODAS</option>
+                        <option v-for="w in availableWeeks" :key="w" :value="w">Semana {{ w }}</option>
+                    </select>
+                </div>
+
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm me-2" @click="loadWeeklyPlan" title="Recargar"><i class="fas fa-sync-alt"></i></button>
+                    <button class="btn btn-light border btn-sm" @click="goHome">Cerrar</button>
+                </div>
+            </div>
+
+            <div class="d-flex mb-3 align-items-end justify-content-start">
+            <div class="excel-container" style="height: auto; max-height: 250px; overflow: auto; flex:none; width: fit-content; border:none; box-shadow:none;">
+                <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
+                    <thead>
+                        <tr>
+                            <th style="min-width:140px">ESPECIALIDAD</th>
+                            <th style="width:50px">TOTAL</th>
+                            <th style="width:50px" class="bg-success text-white">SI</th>
+                            <th style="width:50px" class="bg-danger text-white">NO</th>
+                            <th style="width:70px">PROMEDIO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(s, i) in weeklyStats" :key="i" :class="{'total-row': s.isTotal}">
+                            <td class="text-start ps-2 fw-bold" style="font-size:11px">{{ s.label }}</td>
+                            <td class="text-center">{{ s.total }}</td>
+                            <td class="text-center text-success fw-bold">{{ s.si }}</td>
+                            <td class="text-center text-danger">{{ s.no }}</td>
+                            <td class="text-center fw-bold text-primary">{{ s.avg }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+            <div class="excel-container flex-fill">
+                <div v-if="weeklyPlanData.isLoading" class="text-center p-5 text-muted">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <div>Cargando datos...</div>
+                </div>
+                
+                <table v-else class="table-excel">
+                    <thead>
+                        <tr>
+                            <th class="row-num">#</th>
+                            <th v-for="(h, idx) in weeklyPlanData.headers" :key="idx" :style="getColumnStyle(h)">
+                                {{ getHeaderLabel(h) }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, i) in filteredWeeklyData" :key="i">
+                            <td class="row-num">{{ i + 1 }}</td>
+                            <td v-for="(h, idx) in weeklyPlanData.headers" :key="idx" class="text-center">
+                                
+                                <div v-if="h === 'SEMANA'" style="font-weight:bold; color:#0d6efd; background-color:#f8f9fa; font-size:10px;">
+                                    S{{ row[h] }}
+                                </div>
+
+                                <div v-else-if="h.includes('CUMPLIMIENTO')" style="position:relative; width:100%; height:100%;">
+                                    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index:1;">
+                                        <span class="badge rounded-pill" 
+                                            :class="String(row[h]).toUpperCase() === 'SI' ? 'bg-success' : 'bg-danger'"
+                                            style="font-size:10px; width:40px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                                            {{ row[h] || 'NO' }}
+                                        </span>
+                                    </div>
+                                    <select v-model="row[h]" @change="savePPCV3Row(row)" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:10;">
+                                        <option value="SI">SI</option>
+                                        <option value="NO">NO</option>
+                                    </select>
+                                </div>
+
+                                <div v-else-if="h.includes('ARCHIVO') || h.includes('CLIP')">
+                                    <a v-if="row[h]" :href="row[h]" target="_blank" class="btn btn-sm text-primary"><i class="fas fa-paperclip"></i></a>
+                                </div>
+
+                                <div v-else class="px-1" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;" :title="row[h]">
+                                    {{ row[h] }}
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div v-if="currentView === 'PPC_DINAMICO'" class="h-100 dynamic-tracker" style="padding:20px !important;">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold m-0" style="color:#2c3e50"><i class="fas fa-layer-group me-2" style="color:#e83e8c"></i>Tracker</h4>
+            <button class="btn btn-outline-secondary btn-sm" @click="goHome">Cerrar</button>
+          </div>
+          <div class="dynamic-form-card">
+             <div class="row g-3">
+                 <div class="col-md-6">
+                     <label class="dynamic-label">Especialidad (Departamento)</label>
+                     <select v-model="dynamicPpc.especialidad" class="dynamic-input">
+                         <option value="" disabled>Seleccionar...</option>
+                         <option v-for="(d,k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{d.label}}</option>
+                     </select>
+                 </div>
+                 <div class="col-md-6">
+                     <label class="dynamic-label">Clasificación</label>
+                     <select v-model="dynamicPpc.clasificacion" class="dynamic-input">
+                         <option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option>
+                     </select>
+                 </div>
+                 <div class="col-12">
+                     <label class="dynamic-label">Responsable</label>
+                     <div class="dynamic-input" style="min-height:38px; display:flex; flex-wrap:wrap; gap:5px; align-items:center;" @click="$refs.chipDyn.focus()">
+                         <span v-for="(u,i) in selectedResponsables" :key="i" class="user-chip">
+                             {{u}} <i class="fas fa-times ms-2 text-secondary" style="cursor:pointer" @click.stop="selectedResponsables.splice(i,1)"></i>
+                         </span>
+                         <input ref="chipDyn" v-model="staffSearch" style="background:transparent; border:none; color:#333; outline:none; min-width:60px;" placeholder="+">
+                     </div>
+                     <ul class="list-group position-absolute shadow" style="z-index:100; max-height:150px; overflow:auto; width:300px; margin-top:5px;" v-if="staffSearch">
+                         <li v-for="p in filteredDirectory" :key="p.name" class="list-group-item list-group-item-action small py-1" style="cursor:pointer;" @click="addResponsable(p.name)">{{p.name}}</li>
+                     </ul>
+                 </div>
+                 <div class="col-12"><label class="dynamic-label">Descripción</label><textarea v-model="dynamicPpc.concepto" class="dynamic-input" rows="3"></textarea></div>
+                 <div class="col-md-6"><label class="dynamic-label">Riesgos</label><div><span v-for="r in ['BAJO','MEDIO','ALTO','CATASTROFICO']" :key="r" class="chip-option" :class="{selected: dynamicPpc.riesgos === r}" @click="dynamicPpc.riesgos = r">{{r}}</span></div></div>
+                 <div class="col-md-6"><label class="dynamic-label">Prioridad</label><div><span v-for="p in ['BAJA','MEDIA','URGENTE']" :key="p" class="chip-option" :class="{selected: dynamicPpc.prioridad === p}" @click="dynamicPpc.prioridad = p">{{p}}</span></div></div>
+                 <div class="col-md-3"><label class="dynamic-label">Fecha Fin</label><input type="date" v-model="dynamicPpc.fechaFin" class="dynamic-input"></div>
+                 <div class="col-md-3"><label class="dynamic-label">Archivos</label><button class="btn btn-outline-primary w-100 btn-sm" @click="openFileDialog" style="border-style:dashed; height:36px;"><i class="fas" :class="uploadSuccess ? 'fa-check text-success' : 'fa-cloud-upload-alt'"></i> {{ uploadSuccess ? 'Listo' : 'SUBIR' }}</button><input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect"></div>
+                 <div class="col-md-6"><label class="dynamic-label">Comentarios</label><input v-model="dynamicPpc.comentarios" class="dynamic-input"></div>
+             </div>
+             <div class="mt-4 text-end">
+                 <button class="btn btn-lg fw-bold px-5 text-white" style="background:#e83e8c; border:none;" @click="saveDynamicPPC" :disabled="isSubmitting"><i class="fas fa-save me-2"></i> GUARDAR</button>
+             </div>
+          </div>
+        </div>
+
+        <div v-if="currentView === 'PPC_FORM'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
+           <div class="d-flex justify-content-between align-items-center mb-3">
+               <h5 class="m-0 text-primary"><i class="fas fa-th me-2"></i>PPC Maestro</h5>
+               <button class="btn btn-light border" @click="goHome">Cerrar</button>
+           </div>
+           <div class="d-flex mb-3 align-items-end justify-content-center position-relative" style="min-height: 90px;">
+               <div class="excel-container" style="height: auto; max-height: none; overflow: visible; flex:none; width: fit-content; z-index: 1; border:none; box-shadow:none; background: transparent;">
+                   <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
+                       <thead><tr><th style="width:100px">ESPECIALIDAD</th><th style="width:40px">ACT</th><th style="width:40px">CUMP</th><th style="width:45px">PROM</th><th style="width:40px">ANT</th></tr></thead>
+                       <tbody><tr v-for="stat in deptStats" :key="stat.key" :class="{'total-row': stat.key === 'TOTAL'}"><td style="font-weight:bold; text-align: left;">{{ stat.label }}</td><td class="text-center">{{ stat.actual }}</td><td class="text-center text-success fw-bold">{{ stat.cumplidas }}</td><td class="text-center">{{ stat.promedio }}</td><td class="text-center text-muted">{{ stat.anterior }}</td></tr></tbody>
+                   </table>
+               </div>
+           </div>
+           <div class="excel-container flex-fill mb-3">
+               <table class="table-excel">
+                   <thead><tr><th class="row-num">#</th><th style="width:100px">Depto</th><th style="min-width:400px">Descripción Actividad</th><th style="width:150px">Responsable</th><th style="width:80px">Fecha</th><th style="width:40px">Reloj</th><th style="width:50px">Cumpl.</th><th style="width:40px">Clip</th><th style="min-width:150px">Comentarios</th><th style="min-width:150px">Previos</th><th style="width:50px"></th></tr></thead>
+                   <tbody>
+                       <tr class="input-row">
+                           <td class="row-num">></td>
+                           <td><select v-model="ppcData.especialidad" class="excel-input" style="background:#f0fdf4"><option value="" disabled>Sel...</option><option v-for="(d,k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{d.label}}</option></select></td>
+                           <td><input v-model="ppcData.concepto" class="excel-input" placeholder="Descripción..." style="background:#f0fdf4"></td>
+                           <td style="background:#f0fdf4; position:relative;"><div class="chip-container" @click="$refs.chipIn.focus()"><span v-for="(u,i) in selectedResponsables" :key="i" class="user-chip">{{u}}<i class="fas fa-times ms-1 text-danger" style="cursor:pointer" @click.stop="selectedResponsables.splice(i,1)"></i></span><input ref="chipIn" v-model="staffSearch" style="border:none;outline:none;min-width:40px;font-size:12px;background:transparent;" placeholder="+"></div><ul class="list-group position-absolute w-100 shadow" style="z-index:100;max-height:150px;overflow:auto;top:100%;left:0" v-if="staffSearch"><li v-for="p in filteredDirectory" :key="p.name" class="list-group-item list-group-item-action small py-1" @click="addResponsable(p.name)">{{p.name}}</li></ul></td>
+                           <td class="text-center small text-muted">HOY</td>
+                           <td><input v-model="ppcData.horas" class="excel-input" style="background:#f0fdf4; text-align:center;"></td>
+                           <td><select v-model="ppcData.cumplimiento" class="excel-input" style="background:#f0fdf4"><option value="NO">NO</option><option value="SI">SI</option></select></td>
+                           <td class="text-center" style="background:#f0fdf4"><button class="btn-attach" :class="{'has-file': uploadSuccess}" @click="openFileDialog"><i class="fas" :class="uploadSuccess ? 'fa-check' : 'fa-paperclip'"></i></button><input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect"></td>
+                           <td><input v-model="ppcData.comentarios" class="excel-input" placeholder="..." style="background:#f0fdf4"></td>
+                           <td><input v-model="ppcData.comentariosPrevios" class="excel-input" placeholder="..." style="background:#f0fdf4"></td>
+                           <td class="text-center"><button class="btn btn-primary btn-sm py-0" @click="promptExtraData" title="Más Detalles">+</button></td>
+                       </tr>
+                       <tr v-for="(item, idx) in activityQueue" :key="idx">
+                           <td class="row-num">{{ idx + 1 }}</td>
+                           <td><input :value="item.especialidad" readonly class="excel-input"></td>
+                           <td><input :value="item.concepto" readonly class="excel-input"></td>
+                           <td><div style="padding:0 8px; overflow:hidden; white-space:nowrap; font-size:12px">{{ item.responsable }}</div></td>
+                           <td class="text-center small">{{ item.fechaAlta ? formatDisplayDate(item.fechaAlta) : new Date().toLocaleDateString() }}</td>
+                           <td><input :value="item.horas" readonly class="excel-input" style="text-align:center;"></td>
+                           <td><input :value="item.cumplimiento" readonly class="excel-input"></td>
+                           <td class="text-center"><i class="fas fa-file-pdf text-danger" v-if="item.archivoUrl"></i></td>
+                           <td><input :value="item.comentarios" readonly class="excel-input"></td>
+                           <td><input :value="item.comentariosPrevios" readonly class="excel-input"></td>
+                           <td class="text-center"><i class="fas fa-trash text-danger" style="cursor:pointer" @click="activityQueue.splice(idx,1); syncQueueToBackend();"></i></td>
+                       </tr>
+                   </tbody>
+               </table>
+           </div>
+           <div class="d-flex justify-content-end mb-4 gap-2">
+               <button class="btn btn-danger fw-bold" @click="clearQueue" :disabled="isSubmitting || !activityQueue.length">DEPURAR</button>
+               <button class="btn btn-success fw-bold" @click="submitBatch" :disabled="isSubmitting || !activityQueue.length">{{ isSubmitting ? 'Procesando...' : 'GUARDAR TODO' }}</button>
+           </div>
+        </div>
+      </div>
+      
+      <div v-if="['IFRAME', 'MODULE_TABS'].includes(currentView)" class="iframe-container"><div class="iframe-toolbar"><span class="fw-bold">{{ iframeTitle }}</span><button class="btn btn-sm btn-danger" @click="closeIframe">Cerrar</button></div><iframe :src="currentIframeUrl"></iframe></div>
+    </main>
+  </div>
+
+  <input type="file" ref="cellFileInput" class="file-input-hidden" @change="handleCellFile">
+
+  <div v-if="showExtraModal" class="custom-modal-overlay">
+      <div class="custom-modal">
+          <div class="custom-modal-header"><span>Detalles</span><button type="button" class="btn-close" @click="showExtraModal = false"></button></div>
+          <div class="custom-modal-body">
+              <div class="mb-2"><label class="small fw-bold mb-1">Clasificación:</label><div><span v-for="opt in ['A','AA','AAA']" :key="opt" class="chip-select" :class="{active: extraData.clasificacion === opt}" @click="extraData.clasificacion = opt">{{ opt }}</span></div></div>
+              <div class="mb-2"><label class="small fw-bold mb-1">Prioridades:</label><div><span v-for="opt in priorityOpts" :key="opt" class="chip-select" :class="{active: extraData.prioridades === opt}" @click="extraData.prioridades = opt">{{ opt }}</span></div></div>
+              <div class="mb-2"><label class="small fw-bold mb-1">Riesgos:</label><div><span v-for="opt in riskOpts" :key="opt" class="chip-select" :class="{active: extraData.riesgos === opt}" @click="extraData.riesgos = opt">{{ opt }}</span></div></div>
+              <div class="mb-2"><label class="small fw-bold">Restricciones:</label><input v-model="extraData.restricciones" class="form-control form-control-sm"></div>
+              <div class="mb-2"><label class="small fw-bold">Fecha Respuesta:</label><input type="date" v-model="extraData.fechaRespuesta" class="form-control form-control-sm"></div>
+          </div>
+          <div class="custom-modal-footer"><button class="btn btn-primary btn-sm w-100" @click="confirmAddToQueue">Agregar</button></div>
+      </div>
+  </div>
+</div>
+
+<script>
+  window.onerror = function(msg, url, line) { if(String(msg).toLowerCase().includes("script error")) return; Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
+
+  const { createApp, ref, computed, onMounted } = Vue;
+  const app = createApp({
+    setup() {
+      const isLoggedIn = ref(false); const loginPass = ref(''); const loginUser = ref(''); const loggingIn = ref(false); const currentUser = ref('');
+      const currentView = ref('DASHBOARD'); const currentDept = ref('');
+      const config = ref({ departments: {}, staff: [], directory: [], specialModules: [] });
+      const staffTracker = ref({ name: '', data: [], history: [], headers: [], isLoading: false, previousView: 'DEPT' });
+      const weeklyPlanData = ref({ headers: [], data: [], isLoading: false }); 
+      const searchQuery = ref(''); const isCompact = ref(false); 
+      
+      const ppcData = ref({ cumplimiento: 'NO', cliente: '', comentarios:'', comentariosPrevios:'' }); 
+      const isSubmitting = ref(false);
+      const selectedResponsables = ref([]); const staffSearch = ref(''); const activityQueue = ref([]); 
+      const ppcExistingData = ref([]); 
+      
+      const isUploadingFile = ref(false); const uploadSuccess = ref(false); const fileInput = ref(null);
+      const currentIframeUrl = ref(''); const iframeTitle = ref(''); 
+      const showExtraModal = ref(false);
+      const extraData = ref({ restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' });
+      const priorityOpts = ['URGENTE', 'MEDIA', 'BAJA']; const riskOpts = ['ALTO', 'BAJO', 'CATASTROFICO'];
+      const cellFileInput = ref(null); const uploadingCell = ref({row:null, col:null});
+      const dynamicPpc = ref({ especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' });
+
+      // --- FILTRO DE SEMANA ---
+      const selectedWeek = ref(''); 
+
+      const salesStaff = computed(() => (config.value.directory || []).filter(p => p.dept === 'VENTAS' && p.name !== 'ANTONIA_VENTAS').map(p => p.name));
+      const filteredStaff = computed(() => config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase())));
+      const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
+      const pageTitle = computed(() => currentView.value);
+      const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
+      const currentModuleId = ref('');
+
+      const deptStats = computed(() => {
+          const stats = []; let totalActual=0; let totalCumplidas=0; let totalGlobalDB=0;
+          const deptsToIterate = config.value.allDepartments || config.value.departments;
+          for (const key in deptsToIterate) {
+              const deptLabel = deptsToIterate[key].label;
+              const actual = activityQueue.value.filter(i => i.especialidad === key).length;
+              const totalDB = ppcExistingData.value.filter(i => i.especialidad === key || i.especialidad === deptLabel);
+              const cumplidas = totalDB.filter(i => String(i.cumplimiento).toUpperCase() === 'SI').length;
+              let prom = 0; if (totalDB.length > 0) prom = Math.round((cumplidas / totalDB.length) * 100);
+              totalActual += actual; totalCumplidas += cumplidas; totalGlobalDB += totalDB.length;
+              stats.push({ key: key, label: deptLabel.toUpperCase(), actual: actual, cumplidas: cumplidas, promedio: prom + '%', anterior: '0%' });
+          }
+          let totalProm = 0; if (totalGlobalDB > 0) totalProm = Math.round((totalCumplidas / totalGlobalDB) * 100);
+          stats.push({ key: 'TOTAL', label: 'TOTAL', actual: totalActual, cumplidas: totalCumplidas, promedio: totalProm + '%', anterior: '0%' });
+          return stats;
       });
 
-      // A. Guardar en PPCV3
-      if (rowsForPPC.length > 0) {
-          const lastRow = sheetPPC.getLastRow();
-          sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
-      }
+      // --- LOGICA DE SEMANAS Y FILTROS ---
+      const availableWeeks = computed(() => {
+          const allWeeks = weeklyPlanData.value.data.map(i => i.SEMANA).filter(w => w && w !== '-');
+          return [...new Set(allWeeks)].sort((a,b) => b - a);
+      });
 
-      // B. Distribuir BATCH
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
-          internalBatchUpdateTasks(targetSheet, tasks);
-      }
+      const filteredWeeklyData = computed(() => {
+          if (!selectedWeek.value) return weeklyPlanData.value.data;
+          return weeklyPlanData.value.data.filter(r => String(r.SEMANA) == String(selectedWeek.value));
+      });
 
-      return { success: true, message: "Procesado y Distribuido Correctamente." };
-    } catch (e) { 
-        console.error(e);
-        return { success: false, message: e.toString() };
-    } finally { 
-        lock.releaseLock();
-    }
-  }
-  return { success: false, message: "Sistema Ocupado, intenta de nuevo." };
-}
+      // --- KPI DETALLADO POR ESPECIALIDAD ---
+      const weeklyStats = computed(() => {
+           const data = filteredWeeklyData.value || [];
+           const stats = [];
+           let grandTotal = 0; let grandSi = 0;
+           
+           const depts = config.value.allDepartments || config.value.departments || {};
+           const norm = s => String(s||'').toUpperCase().trim();
 
-function uploadFileToDrive(data, type, name) {
-  try {
-    const folderId = APP_CONFIG.folderIdUploads;
-    let folder;
-    if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder(); } } 
-    else { folder = DriveApp.getRootFolder(); }
-    const blob = Utilities.newBlob(Utilities.base64Decode(data.split(',')[1]), type, name);
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return { success: true, fileUrl: file.getUrl() };
-  } catch (e) { return { success: false, message: e.toString() }; }
-}
+           // 1. Iterar departamentos configurados
+           for (const key in depts) {
+               const label = depts[key].label.toUpperCase();
+               const items = data.filter(r => {
+                   const s = norm(r['ESPECIALIDAD'] || r['AREA']);
+                   return s === key || s === norm(depts[key].label);
+               });
+               
+               const t = items.length;
+               const s = items.filter(r => norm(r['CUMPLIMIENTO']) === 'SI').length;
+               const n = t - s;
+               const p = t > 0 ? Math.round((s/t)*100) : 0;
+               
+               // Agregamos todas las especialidades a la lista
+               stats.push({ label: label, total: t, si: s, no: n, avg: p + '%' });
+               grandTotal += t; grandSi += s;
+           }
+           
+           // Fila TOTAL
+           const grandNo = grandTotal - grandSi;
+           const grandAvg = grandTotal > 0 ? Math.round((grandSi/grandTotal)*100) : 0;
+           stats.push({ label: 'TOTAL GLOBAL', total: grandTotal, si: grandSi, no: grandNo, avg: grandAvg + '%', isTotal: true });
+           
+           return stats;
+      });
 
-function apiFetchPPCData() { 
-  try { 
-    const s = findSheetSmart(APP_CONFIG.ppcSheetName);
-    if(!s) return {success:true,data:[]}; 
-    
-    const range = s.getDataRange();
-    const values = range.getValues();
-    if (values.length < 2) return {success:true, data:[]};
-    const headerIdx = findHeaderRow(values);
-    if (headerIdx === -1) return {success:true, data:[]};
+      const isCol = (h, list) => list.includes(String(h).toUpperCase().trim());
+      
+      const getColumnStyle = (h) => {
+          const up = String(h).toUpperCase().trim();
+          let w = '120px'; let fs = '12px'; let pad = '8px 4px';
+          let align = 'left';
 
-    const headers = values[headerIdx].map(h => String(h).toUpperCase().replace(/\n/g, " ").trim());
-    const colMap = {
-      id: headers.findIndex(h => h.includes("ID") || h.includes("FOLIO")),
-      esp: headers.findIndex(h => h.includes("ESPECIALIDAD")),
-      con: headers.findIndex(h => h.includes("DESCRIPCI") || h.includes("CONCEPTO")), 
-      resp: headers.findIndex(h => h.includes("RESPONSABLE") || h.includes("INVOLUCRADOS")),
-      fecha: headers.findIndex(h => h.includes("FECHA") || h.includes("ALTA")),
-      reloj: headers.findIndex(h => h.includes("RELOJ")),
-      cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
-      arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
-      com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
-      prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
-    };
-
-    let dataRows = values.slice(headerIdx + 1);
-    if(dataRows.length > 300) dataRows = dataRows.slice(dataRows.length - 300);
-    const resultData = dataRows.map(r => {
-      const getVal = (idx) => (idx > -1 && r[idx] !== undefined) ? r[idx] : "";
-      return {
-        id: getVal(colMap.id),
-        especialidad: getVal(colMap.esp),
-        concepto: getVal(colMap.con),
-        responsable: getVal(colMap.resp),
-        fechaAlta: getVal(colMap.fecha),
-        horas: getVal(colMap.reloj),
-        cumplimiento: getVal(colMap.cump),
-        archivoUrl: getVal(colMap.arch),
-        comentarios: getVal(colMap.com),
-        comentariosPrevios: getVal(colMap.prev)
+          if (up === 'CONCEPTO' || up.includes('DESCRIP')) { 
+              w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '750px' : '500px'; 
+          }
+          else if (isCol(h, ['ESPECIALIDAD', 'AREA', 'DEPTO'])) { w = '50px'; fs = '11px'; } 
+          else if (isCol(h, ['ID', 'FOLIO'])) { w = '40px'; fs = '10px'; align = 'center'; } 
+          else if (up.includes('CUMPLIMIENTO')) { w = '50px'; align = 'center'; fs = '11px'; }
+          else if (up.includes('ARCHIVO') || up.includes('CLIP')) { w = '40px'; align = 'center'; }
+          else if (up === 'SEMANA') { w = '50px'; align = 'center'; }
+          else if (up === 'HORA') { w = '50px'; fs = '10px'; }
+          else if (up === 'FECHA ESTIMADA DE FIN') { w = '75px'; fs = '10px'; }
+          else if (up === 'HORA ESTIMADA DE FIN') { w = '60px'; fs = '10px'; }
+          else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } 
+          else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; }
+          else if (up === 'REQUISITOR') { w = '90px'; fs = '11px'; }
+          else if (up === 'INFO CLIENTE') { w = '90px'; fs = '11px'; } 
+          else if (isCol(h, ['DIAS','RELOJ','CLASIFICACION'])) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
+          else if (up.includes('AVANCE')) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
+          else if (isCol(h, ['ESTATUS','STATUS'])) { w = '65px'; fs = '10px'; pad = '8px 1px'; }
+          else if (up.includes('FECHA') || up.includes('RESPUESTA')) { w = '65px'; fs = '10px'; }
+          else if (up === 'VENDEDOR') { w = '75px'; fs = '10px'; }
+          else if (up === 'CLIENTE') w = '200px';
+          
+          return { width: w, fontSize: fs, padding: pad, textAlign: align, overflow: 'hidden', textOverflow: 'ellipsis' };
       };
-    }).filter(x => x.concepto).reverse();
-    return { success: true, data: resultData }; 
-  } catch(e){ return {success:false, message: e.toString()} } 
-}
-
-/**
- * LECTURA INTELIGENTE DE PPCV3 PARA PLANEACIÓN SEMANAL
- */
-function apiFetchWeeklyPlanData() {
-  try {
-    const sheet = findSheetSmart(APP_CONFIG.ppcSheetName);
-    if (!sheet) return { success: false, message: "No existe la hoja PPCV3" };
-
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) return { success: true, headers: [], data: [] };
-
-    const headerRowIdx = findHeaderRow(data);
-    if (headerRowIdx === -1) return { success: false, message: "Cabeceras no encontradas en PPCV3." };
-
-    const originalHeaders = data[headerRowIdx].map(h => String(h).trim());
-    
-    // Normalizar Cabeceras (Mapeo Inteligente)
-    const mappedHeaders = originalHeaders.map(h => {
-        const up = h.toUpperCase();
-        if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
-        if (up.includes("INVOLUCRADOS") || up.includes("RESPONSABLE")) return "RESPONSABLE";
-        if (up.includes("ALTA") || up.includes("FECHA")) return "FECHA";
-        if (up.includes("RELOJ") || up.includes("HORAS")) return "RELOJ";
-        if (up.includes("ARCHIV") || up.includes("CLIP")) return "ARCHIVO";
-        if (up.includes("CUMPLIMIENTO")) return "CUMPLIMIENTO";
-        return up; 
-    });
-
-    const displayHeaders = ["SEMANA", ...mappedHeaders];
-    
-    const rows = data.slice(headerRowIdx + 1);
-    const result = rows.map((r, i) => {
-      const rowObj = { _rowIndex: headerRowIdx + i + 2 };
       
-      mappedHeaders.forEach((h, colIdx) => {
-        let val = r[colIdx];
-        if (val instanceof Date) {
-           val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
-        }
-        rowObj[h] = val;
-      });
-
-      // Calculo de Semana
-      const fechaVal = rowObj["FECHA"];
-      let semanaNum = "-";
-      if (fechaVal) {
-        let dateObj = null;
-        if (String(fechaVal).includes("/")) {
-          const parts = String(fechaVal).split("/"); 
-          if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]);
-        } else if (fechaVal instanceof Date) {
-          dateObj = fechaVal;
-        } else {
-          dateObj = new Date(fechaVal);
-        }
-        if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
-      }
-      rowObj["SEMANA"] = semanaNum;
+      const getHeaderLabel = (h) => {
+          const up = String(h).toUpperCase().trim();
+          if (up === 'CLASIFICACION') return 'CLASI';
+          if (up === 'FECHA ESTIMADA DE FIN') return 'FEC. EST. FIN';
+          if (up === 'HORA ESTIMADA DE FIN') return 'HR. EST. FIN';
+          return h;
+      };
       
-      return rowObj;
-    }).filter(r => r["CONCEPTO"] || r["ID"] || r["FOLIO"]); 
+      const isMediaColumn = (h) => ['F2','COTIZACION','COT','COTIZACIÓN','TIMEOUT','TIME OUT','LAYOUT','TIMELINE','REQUISITOR','INFO CLIENTE'].includes(String(h).toUpperCase());
+      
+      const getTrafficStyle = (row) => {
+          const t = String(row['CLASIFICACION']||'').trim().toUpperCase(); 
+          const d = parseInt(row['DIAS']||row['RELOJ']||0);
+          if (isNaN(d)) return {};
+          if(t==='A') return d>=3?{backgroundColor:'#e74c3c',color:'white'}:(d===2?{backgroundColor:'#f1c40f',color:'black'}:{backgroundColor:'#2ecc71',color:'white'});
+          if(t==='AA') return d>=7?{backgroundColor:'#e74c3c',color:'white'}:(d>=4?{backgroundColor:'#f1c40f',color:'black'}:{backgroundColor:'#2ecc71',color:'white'});
+          if(t==='AAA') return d>=30?{backgroundColor:'#e74c3c',color:'white'}:(d>=11?{backgroundColor:'#f1c40f',color:'black'}:{backgroundColor:'#2ecc71',color:'white'});
+          return {};
+      };
 
-    return { success: true, headers: displayHeaders, data: result.reverse() }; 
-  } catch (e) {
-    console.error(e);
-    return { success: false, message: e.toString() };
-  }
-}
+      const getFechaRespuestaStyle = (row) => {
+          const startKey = Object.keys(row).find(k => ['FECHA','FECHA INICIO','FECHA DE INICIO'].includes(String(k).toUpperCase().trim()));
+          const startDateVal = startKey ? row[startKey] : null;
+          const style = { backgroundColor: '#ffc107', color: 'black' }; 
+          if (!startDateVal) return style;
+          let startDate = null;
+          if (typeof startDateVal === 'string') { const parts = startDateVal.split('/'); if (parts.length === 3) { let y = parts[2].length === 2 ? '20' + parts[2] : parts[2]; startDate = new Date(`${y}-${parts[1]}-${parts[0]}`); } } 
+          else if (startDateVal instanceof Date) { startDate = startDateVal; }
+          if (startDate && !isNaN(startDate.getTime())) { const diff = new Date() - startDate; if (Math.floor(diff / (1000 * 60 * 60 * 24)) > 3) { style.backgroundColor = '#dc3545'; style.color = 'white'; } }
+          return style;
+      };
 
-// Helper: Semana ISO
-function getWeekNumber(d) {
-  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-  var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
-  return weekNo;
-}
+      const handleErr = (e) => { loggingIn.value=false; isSubmitting.value=false; Swal.fire('Error',e.message,'error'); };
+      const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
+      const loadConfig = (r) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data; } }).apiFetchDrafts(); } }).getSystemConfig(r); };
+      const toggleSidebar = () => { isCompact.value = !isCompact.value; };
+      const logout = () => { isLoggedIn.value=false; loginPass.value=''; loginUser.value=''; currentView.value='DASHBOARD'; };
+      const goHome = () => { currentView.value='DASHBOARD'; currentDept.value=''; currentModuleId.value=''; };
+      const selectDept = (k) => { currentDept.value=k; currentView.value='DEPT'; searchQuery.value=''; currentModuleId.value=''; };
+      const goBackToDept = () => currentView.value=staffTracker.value.previousView;
+      
+      const loadWeeklyPlan = () => {
+          weeklyPlanData.value.isLoading = true;
+          google.script.run.withSuccessHandler(res => {
+              weeklyPlanData.value.isLoading = false;
+              if(res.success){ 
+                  weeklyPlanData.value.headers = res.headers; 
+                  weeklyPlanData.value.data = res.data; 
+                  selectedWeek.value = ''; // Resetear al cargar
+              }
+              else Swal.fire('Error', res.message, 'error');
+          }).apiFetchWeeklyPlanData();
+      };
 
-function apiFetchSalesData() { try { const s = findSheetSmart(APP_CONFIG.salesSheetName);
-if(!s) return {success:true,data:[],headers:[]};
-const d = s.getDataRange().getValues(); return {success:true, headers:d[0], data:d.slice(1).map(r=>{let o={};d[0].forEach((h,i)=>o[h]=r[i]);return o;})};
-} catch(e){return {success:false}} }
-function apiSaveSaleData(j) { const s = findSheetSmart(APP_CONFIG.salesSheetName);
-s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||"")); return {success:true}; }
+      const savePPCV3Row = (row) => {
+          const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+          Toast.fire({ icon: 'info', title: 'Guardando...' });
+          google.script.run.withSuccessHandler(res => {
+              if(res.success) Toast.fire({ icon: 'success', title: 'Actualizado' });
+              else Swal.fire('Error', res.message, 'error');
+          }).apiUpdatePPCV3(JSON.parse(JSON.stringify(row)));
+      };
+
+      const openModule = (m) => { 
+          currentModuleId.value = m.id; currentDept.value = ''; 
+          if(m.type==='mirror_staff') openStaffTracker({name:m.target}); 
+          else if(m.type==='ppc_native') { currentView.value='PPC_FORM'; google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData(); }
+          else if(m.type==='ppc_dynamic_view') { currentView.value='PPC_DINAMICO'; dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; }
+          else if(m.type==='weekly_plan_view') { currentView.value='WEEKLY_PLAN'; loadWeeklyPlan(); }
+      };
+      
+      const closeIframe = () => currentView.value='DASHBOARD';
+      const openStaffTracker = (p) => { staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true; google.script.run.withSuccessHandler(res => { staffTracker.value.isLoading=false; if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name); };
+      const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
+      const addNewRow = () => { if(!staffTracker.value.headers.length) return; const row={_isNew:true}; staffTracker.value.headers.forEach(h=>row[h]=""); staffTracker.value.data.unshift(row); };
+      const saveRow = (row) => { Swal.showLoading(); google.script.run.withSuccessHandler(res => { Swal.close(); if(res.success){ row._isNew=false; if(res.moved){ reloadStaffTracker(); Swal.fire({icon: 'success', title: 'Archivado', timer: 1000, showConfirmButton: false}); } else Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false}); } else Swal.fire('Error', res.message, 'error'); }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); };
+      const openCellUpload = (row, col) => { uploadingCell.value = {row, col}; cellFileInput.value.click(); };
+      const handleCellFile = (e) => { const file = e.target.files[0]; if(!file || !uploadingCell.value.row) return; Swal.showLoading(); const r = new FileReader(); r.onload = (ev) => { google.script.run.withSuccessHandler(res => { if(res.success){ const colName = String(uploadingCell.value.col).toUpperCase(); if (colName === 'INFO CLIENTE') { const currentVal = uploadingCell.value.row[uploadingCell.value.col] || ''; uploadingCell.value.row[uploadingCell.value.col] = currentVal ? currentVal + '\n' + res.fileUrl : res.fileUrl; } else { uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; } saveRow(uploadingCell.value.row); } else Swal.fire('Error', res.message, 'error'); e.target.value = null; }).uploadFileToDrive(ev.target.result, file.type, file.name); }; r.readAsDataURL(file); };
+      const addResponsable = (n) => { selectedResponsables.value.push(n); staffSearch.value=''; };
+      const openFileDialog = () => fileInput.value.click();
+      const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
+      const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
+      const confirmAddToQueue = () => { const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos; item.clasificacion = extraData.value.clasificacion; let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); };
+      const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
+      const saveDynamicPPC = () => { if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); isSubmitting.value = true; let fResp = dynamicPpc.value.fechaFin; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } const payload = { especialidad: dynamicPpc.value.especialidad, concepto: dynamicPpc.value.concepto, responsable: selectedResponsables.value.join(','), clasificacion: dynamicPpc.value.clasificacion, riesgos: dynamicPpc.value.riesgos, prioridad: dynamicPpc.value.prioridad, fechaRespuesta: fResp, archivoUrl: dynamicPpc.value.archivoUrl, comentarios: dynamicPpc.value.comentarios, horas: '', cumplimiento: 'NO' }; google.script.run.withSuccessHandler(res => { isSubmitting.value = false; if(res.success){ Swal.fire('Registro Guardado','Enviado a PPC y Tracker','success'); dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; } else { Swal.fire('Error', res.message, 'error'); } }).withFailureHandler(handleErr).apiSavePPCData([payload]); };
+      const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
+      const clearQueue = () => { Swal.fire({ title: '¿Limpiar tabla?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí' }).then((result) => { if (result.isConfirmed) { activityQueue.value = []; google.script.run.apiClearDrafts(); } }); };
+      const toIsoDate = (val) => { if (!val) return ''; const parts = String(val).split('/'); if (parts.length === 3) { let y = parts[2]; if (y.length === 2) y = '20' + y; return `${y}-${parts[1]}-${parts[0]}`; } return ''; };
+      const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
+      const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
+      
+      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData };
+    }
+  });
+  app.config.errorHandler = (err) => { console.error(err); Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
+  app.mount('#app');
+</script>
+</body>
+</html>
