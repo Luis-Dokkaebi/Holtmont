@@ -1,6 +1,7 @@
 /**
  * ======================================================================
- * HOLTMONT WORKSPACE V126 - FIX VENTAS DISTRIBUTION & PPC BATCHING
+ * HOLTMONT WORKSPACE V128 - SCRIPTMASTER EDITION
+ * Optimizado: Batch Write, Smart Headers, KPI Dashboard Support
  * ======================================================================
  */
 
@@ -9,7 +10,7 @@ const SS = SpreadsheetApp.getActiveSpreadsheet();
 // --- CONFIGURACIÓN ---
 const APP_CONFIG = {
   folderIdUploads: "", 
-  ppcSheetName: "PPCV3",          // Historial Maestro
+  ppcSheetName: "PPCV3",          // Historial Maestro / Planeación Semanal
   draftSheetName: "PPC_BORRADOR", // Borrador persistente
   salesSheetName: "Datos",
   logSheetName: "LOG_SISTEMA"
@@ -44,12 +45,24 @@ function findSheetSmart(name) {
   return null;
 }
 
-// DETECTOR ESTRICTO (NORMALIZADO)
+// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster)
 function findHeaderRow(values) {
   for (let i = 0; i < Math.min(100, values.length); i++) {
     const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
-    if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO") && (rowStr.includes("ALTA") || rowStr.includes("AVANCE"))) return i;
-    if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE") && (rowStr.includes("FECHA") || rowStr.includes("ALTA"))) return i;
+    
+    // 1. Tracker Estandar
+    if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO")) return i;
+    
+    // 2. Staff Antiguo
+    if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE")) return i;
+    
+    // 3. CASO PPCV3 (Flexible): Acepta ID o FOLIO + DESCRIPCION o RESPONSABLE
+    if ((rowStr.includes("FOLIO") || rowStr.includes("ID")) && 
+        (rowStr.includes("DESCRIPCI") || rowStr.includes("RESPONSABLE") || rowStr.includes("CONCEPTO"))) {
+      return i;
+    }
+
+    // 4. Ventas
     if (rowStr.includes("CLIENTE") && (rowStr.includes("VENDEDOR") || rowStr.includes("AREA"))) return i;
   }
   return -1;
@@ -136,7 +149,7 @@ function getSystemConfig(role) {
     { name: "EDGAR HOLT", dept: "DISEÑO" },
     { name: "EDGAR LOPEZ", dept: "DISEÑO" }
   ];
-  
+
   const allDepts = {
       "CONSTRUCCION": { label: "Construcción", icon: "fa-hard-hat", color: "#e83e8c" },
       "COMPRAS": { label: "Compras/Almacén", icon: "fa-shopping-cart", color: "#198754" },
@@ -157,7 +170,7 @@ function getSystemConfig(role) {
   ];
 
   if (role === 'PPC_ADMIN') return { departments: {}, allDepartments: allDepts, staff: [], directory: fullDirectory, specialModules: ppcModules };
-  
+
   if (role === 'ADMIN_CONTROL') {
     return {
       departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
@@ -192,10 +205,10 @@ function apiFetchStaffTrackerData(personName) {
     if (!sheet) return { success: true, data: [], history: [], headers: [], message: `Falta hoja: ${personName}` };
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
-
+    
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-
+    
     const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
     const validIndices = [];
     const cleanHeaders = [];
@@ -216,6 +229,7 @@ function apiFetchStaffTrackerData(personName) {
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
+
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -239,6 +253,7 @@ function apiFetchStaffTrackerData(personName) {
         if (isReadingHistory) historyTasks.push(rowObj); else activeTasks.push(rowObj);
       }
     }
+    
     const dateSorter = (a, b) => {
       const dA = a['_sortDate'] instanceof Date ? a['_sortDate'].getTime() : 0;
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
@@ -248,143 +263,111 @@ function apiFetchStaffTrackerData(personName) {
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
-// --- OPTIMIZACIÓN: BATCH UPDATE REAL ---
+/**
+ * ======================================================================
+ * OPTIMIZACIÓN SCRIPTMASTER: ESCRITURA QUIRÚRGICA E INTELIGENTE
+ * Detecta si es un solo cambio para escribir solo esa fila.
+ * ======================================================================
+ */
 function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
+
   try {
     const sheet = findSheetSmart(sheetName);
     if (!sheet) return { success: false, message: "Hoja no encontrada: " + sheetName };
 
-    // Leemos UNA VEZ
-    const values = sheet.getDataRange().getValues();
+    // Leemos datos para mapear
+    const dataRange = sheet.getDataRange();
+    let values = dataRange.getValues();
+    if (values.length === 0) return { success: false, message: "Hoja vacía" };
+
     const headerRowIndex = findHeaderRow(values);
-    if (headerRowIndex === -1) return { success: false, message: "Sin tabla en " + sheetName };
+    if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
 
-    const sheetHeaders = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
-    const lastCol = sheet.getLastColumn();
-    const headersRaw = sheet.getRange(headerRowIndex+1, 1, 1, lastCol).getValues()[0]; // Obtener headers originales para insert
+    const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
+    const colMap = {};
+    headers.forEach((h, i) => colMap[h] = i);
 
-    // Mapas de columnas
-    const folioIndex = sheetHeaders.indexOf("FOLIO");
-    const conceptoIndex = sheetHeaders.indexOf("CONCEPTO");
-    
-    // Mapa de sinonimos (reutilizado)
-    const COL_MAP = {
-        'ALTA': ['ALTA', 'CLIENTE', 'AREA', 'DEPARTAMENTO'],
-        'INVOLUCRADOS': ['INVOLUCRADOS', 'VENDEDOR', 'RESPONSABLE', 'REQUISITOR'],
-        'RELOJ': ['RELOJ', 'DIAS'],
-        'FECHA': ['FECHA', 'FECHA INICIO', 'FECHA DE INICIO', 'FECHA ALTA'],
+    const getColIdx = (key) => {
+      const k = key.toUpperCase();
+      if (colMap[k] !== undefined) return colMap[k];
+      const aliases = {
+        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO'],
+        'CONCEPTO': ['CONCEPTO', 'DESCRIPCION', 'DESCRIPCIÓN DE LA ACTIVIDAD'],
+        'RESPONSABLE': ['RESPONSABLE', 'INVOLUCRADOS'],
+        'RELOJ': ['RELOJ', 'HORAS', 'DIAS'],
         'ESTATUS': ['ESTATUS', 'STATUS'],
-        'CLASIFICACION': ['CLASIFICACION', 'CLASE', 'TIPO'], 
-        'PRIORIDAD': ['PRIORIDAD', 'PRIORIDADES'],
-        'AVANCE': ['AVANCE', 'AVANCE %'],
-        'RESTRICCIONES': ['RESTRICCIONES', 'REST.'],
-        'RIESGOS': ['RIESGOS'],
-        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'HORA ESTIMADA DE FIN', 'FECHA ESTIMADA DE FIN', 'FEC. EST. FIN'],
-        'HORA_ESTIMADA': ['HORA ESTIMADA DE FIN', 'HR. EST. FIN'],
-        'F2': ['F2'], 'COTIZACION': ['COTIZACION', 'COT', 'COTIZACIÓN'], 'TIMEOUT': ['TIMEOUT', 'TIME OUT'], 'LAYOUT': ['LAYOUT'], 'TIMELINE': ['TIMELINE']
+        'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'] // Alias crítico
+      };
+      for (let main in aliases) {
+        if (aliases[main].includes(k)) {
+             for(let alias of aliases[main]) if(colMap[alias] !== undefined) return colMap[alias];
+        }
+      }
+      return -1;
     };
 
-    const getTargetColIdx = (key) => {
-         const keyUpper = key.toUpperCase();
-         let idx = sheetHeaders.indexOf(keyUpper);
-         if (idx > -1) return idx;
-         for (const std in COL_MAP) {
-            if (keyUpper === std || COL_MAP[std].includes(keyUpper)) {
-               for (const alias of COL_MAP[std]) {
-                  const aliasIdx = sheetHeaders.indexOf(alias);
-                  if (aliasIdx > -1) return aliasIdx;
-               }
-            }
-         }
-         return -1;
-    };
+    const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
+    let singleRowIndex = -1; // Para optimización
 
-    const newRowsToAppend = [];
-    
-    // Procesar cada tarea
-    tasksArray.forEach(taskData => {
-        // Determinar si es Update (buscar row)
-        let targetRow = -1;
-        if (taskData['_rowIndex']) { 
-            targetRow = parseInt(taskData['_rowIndex']);
-        } else {
-             // Búsqueda en memoria (evitamos loops de lectura)
-             for (let i = headerRowIndex + 1; i < values.length; i++) {
-                if (values[i].join("|").toUpperCase().includes("TAREAS REALIZADAS")) break;
-                
-                const rowValFolio = folioIndex > -1 ? String(values[i][folioIndex]).trim().toUpperCase() : "";
-                const rowValConcepto = conceptoIndex > -1 ? String(values[i][conceptoIndex]).trim().toUpperCase() : "";
-                const inFolio = String(taskData['FOLIO']||"").trim().toUpperCase();
-                const inConcepto = String(taskData['CONCEPTO']||"").trim().toUpperCase();
+    tasksArray.forEach(task => {
+      let rowIndex = -1;
 
-                if (inFolio && inFolio === rowValFolio) { targetRow = i + 1; break; }
-                else if (inConcepto && inConcepto === rowValConcepto) { targetRow = i + 1; break; }
-             }
+      // Usamos el índice de fila si viene del frontend (Más seguro y rápido)
+      if (task._rowIndex) {
+        rowIndex = parseInt(task._rowIndex) - 1; // Ajuste a base 0
+      } else {
+        // Búsqueda fallback por ID
+        const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
+        for (let i = headerRowIndex + 1; i < values.length; i++) {
+           const row = values[i];
+           if (folioIdx > -1 && String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
         }
+      }
 
-        // Preparar valores para fila nueva
-        const prepareRowValues = (sourceTask) => {
-            return headersRaw.map(h => {
-                const hStr = String(h).toUpperCase().trim();
-                const dataKey = Object.keys(sourceTask).find(k => {
-                    if (k.toUpperCase() === hStr) return true;
-                    for (const std in COL_MAP) { if (COL_MAP[std].includes(k.toUpperCase()) && COL_MAP[std].includes(hStr)) return true; }
-                    return false;
-                });
-                return dataKey ? sourceTask[dataKey] : "";
-            });
-        };
-
-        if (targetRow !== -1) {
-             // UPDATE existente: Escribimos directo (Batching updates dispersos no es nativo, hacemos setValues individual optimizado)
-             // Solo actualizamos columnas que traiga el taskData
-             const rowValues = values[targetRow-1]; // Valores actuales (base 0)
-             let rowUpdated = false;
-             
-             // Esto requiere escribir celda por celda o fila completa.
-             // Para eficiencia, mejor reescribir solo las celdas cambiadas si son pocas, pero aqui sobreescribimos.
-             // Dado que Google Sheets API prefiere batch writes, y Apps Script tiene limite,
-             // Lo mas simple y seguro es escribir la fila.
-             
-             // PERO para no borrar datos que NO vienen en taskData, mezclamos:
-             // (Nota: Esto implica mapear indices de nuevo)
-             for (const key in taskData) {
-                if (key.startsWith('_')) continue;
-                const colIdx = getTargetColIdx(key);
-                if (colIdx > -1) {
-                    sheet.getRange(targetRow, colIdx + 1).setValue(taskData[key]); 
-                }
-             }
-             // Log
-             // logSystemEvent(sheetName, "UPDATE", `Editado: ${taskData['CONCEPTO']}`);
-        } else {
-             // INSERT nuevo
-             newRowsToAppend.push(prepareRowValues(taskData));
-             logSystemEvent(sheetName, "CREATE", `Nuevo: ${taskData['CONCEPTO']}`);
-        }
+      if (rowIndex > -1 && rowIndex < values.length) {
+        // UPDATE en memoria
+        Object.keys(task).forEach(key => {
+          if (key.startsWith('_')) return;
+          const cIdx = getColIdx(key);
+          if (cIdx > -1) values[rowIndex][cIdx] = task[key];
+        });
+        singleRowIndex = rowIndex;
+      }
     });
 
-    // Inserción masiva de nuevas filas
-    if (newRowsToAppend.length > 0) {
-        sheet.insertRowsAfter(headerRowIndex + 1, newRowsToAppend.length);
-        sheet.getRange(headerRowIndex + 2, 1, newRowsToAppend.length, newRowsToAppend[0].length).setValues(newRowsToAppend);
+    // --- ESCRITURA OPTIMIZADA (QUIRÚRGICA) ---
+    // Si solo modificamos una fila, escribimos SOLO esa fila.
+    if (tasksArray.length === 1 && singleRowIndex > -1) {
+       // Escribimos en (FilaReal, Columna 1, 1 Fila, AnchoTotal)
+       sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
+    } else {
+       // Si son muchos cambios, escribimos todo el bloque (Batch tradicional)
+       sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
     }
     
     return { success: true };
 
-  } catch(e) { console.error(e); return { success: false, message: e.toString() }; }
+  } catch (e) {
+    console.error(e);
+    return { success: false, message: e.toString() };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
-// Wrapper para compatibilidad con llamadas individuales (Frontend)
+// NUEVA FUNCIÓN PARA GUARDAR CAMBIOS DE PPCV3
+function apiUpdatePPCV3(taskData) {
+  return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]);
+}
+
+// Wrapper para llamadas individuales
 function internalUpdateTask(personName, taskData) {
-    // Preservar lógica legacy de replicación si es edición manual de Antonia
-    // PERO solo para llamadas individuales (updates manuales)
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        
-        // LOGICA DE REPLICACION MANUAL (Antonia edita en su hoja -> Replica a Vendedor y Admin)
         if (personName === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -407,7 +390,7 @@ function apiUpdateTask(personName, taskData) {
   return { success: false, message: "Ocupado." };
 }
 
-// --- GESTIÓN DE BORRADORES (PERSISTENCIA MEJORADA) ---
+// --- GESTIÓN DE BORRADORES ---
 function apiFetchDrafts() {
   try {
     const sheet = findSheetSmart(APP_CONFIG.draftSheetName);
@@ -460,16 +443,15 @@ function apiClearDrafts() {
 }
 
 // ======================================================================
-// FUNCION CRITICA OPTIMIZADA (SCRIPTMASTER)
+// FUNCION CRITICA OPTIMIZADA
 // REQUERIMIENTO: Enviar a Trabajador + Duplicar Admin + Guardar PPCV3
 // ======================================================================
 function apiSavePPCData(payload) {
   const lock = LockService.getScriptLock();
-  if (lock.tryLock(20000)) { // 20 seg para batch heavy
+  if (lock.tryLock(20000)) { 
     try {
       const items = Array.isArray(payload) ? payload : [payload];
       
-      // 1. Preparar PPCV3 (Historial)
       let sheetPPC = findSheetSmart(APP_CONFIG.ppcSheetName);
       if (!sheetPPC) { 
         sheetPPC = SS.insertSheet(APP_CONFIG.ppcSheetName);
@@ -480,9 +462,7 @@ function apiSavePPCData(payload) {
       const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
       
       const rowsForPPC = [];
-      const tasksBySheet = {}; // Mapa: 'NombreHoja' -> [ListaDeTareas]
-
-      // Helper para agrupar tareas por hoja destino
+      const tasksBySheet = {};
       const addTaskToSheet = (sheetName, task) => {
           if (!sheetName) return;
           const key = sheetName.trim();
@@ -493,14 +473,13 @@ function apiSavePPCData(payload) {
       items.forEach(item => {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           
-          // Data para PPCV3
           rowsForPPC.push([
              id, 
              item.especialidad, item.concepto, item.responsable, fechaHoy, 
-             item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
+             item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, 
+             item.comentariosPrevios || ""
           ]);
 
-          // Data Estandarizada para Trackers
           const taskData = {
                  'FOLIO': id, 
                  'CONCEPTO': item.concepto, 
@@ -516,38 +495,32 @@ function apiSavePPCData(payload) {
                  'FECHA_RESPUESTA': item.fechaRespuesta, 
                  'AVANCE': "0%"
           };
-
-          // 2. REQUERIMIENTO: Duplicado en ADMINISTRADOR (Monitor Global)
+          // DUPLICADO EN ADMIN
           addTaskToSheet("ADMINISTRADOR", taskData);
-
-          // 3. REQUERIMIENTO: Enviar a Trabajadores (CHIP)
+          // DISTRIBUCION
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
           responsables.forEach(personName => {
              addTaskToSheet(personName, taskData);
           });
       });
 
-      // EJECUCIÓN BATCH (Escritura Masiva)
-      
-      // A. Guardar en PPCV3 (Un solo bloque de escritura)
+      // A. Guardar en PPCV3
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
 
-      // B. Distribuir a Hojas Individuales (Iteramos el mapa)
+      // B. Distribuir BATCH
       for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
-          // Llamamos a la función batch optimizada en lugar de loop interno
           internalBatchUpdateTasks(targetSheet, tasks);
       }
 
       return { success: true, message: "Procesado y Distribuido Correctamente." };
-
     } catch (e) { 
         console.error(e);
-        return { success: false, message: e.toString() }; 
+        return { success: false, message: e.toString() };
     } finally { 
-        lock.releaseLock(); 
+        lock.releaseLock();
     }
   }
   return { success: false, message: "Sistema Ocupado, intenta de nuevo." };
@@ -566,7 +539,6 @@ function uploadFileToDrive(data, type, name) {
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
-// FUNCION CRITICA MEJORADA: LECTURA INTELIGENTE
 function apiFetchPPCData() { 
   try { 
     const s = findSheetSmart(APP_CONFIG.ppcSheetName);
@@ -580,14 +552,14 @@ function apiFetchPPCData() {
 
     const headers = values[headerIdx].map(h => String(h).toUpperCase().replace(/\n/g, " ").trim());
     const colMap = {
-      id: headers.findIndex(h => h.includes("ID")),
+      id: headers.findIndex(h => h.includes("ID") || h.includes("FOLIO")),
       esp: headers.findIndex(h => h.includes("ESPECIALIDAD")),
-      con: headers.findIndex(h => h.includes("DESCRIPCI")), 
-      resp: headers.findIndex(h => h.includes("RESPONSABLE")),
+      con: headers.findIndex(h => h.includes("DESCRIPCI") || h.includes("CONCEPTO")), 
+      resp: headers.findIndex(h => h.includes("RESPONSABLE") || h.includes("INVOLUCRADOS")),
       fecha: headers.findIndex(h => h.includes("FECHA") || h.includes("ALTA")),
       reloj: headers.findIndex(h => h.includes("RELOJ")),
       cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
-      arch: headers.findIndex(h => h.includes("ARCHIVO")),
+      arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
       com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
       prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
     };
@@ -611,6 +583,84 @@ function apiFetchPPCData() {
     }).filter(x => x.concepto).reverse();
     return { success: true, data: resultData }; 
   } catch(e){ return {success:false, message: e.toString()} } 
+}
+
+/**
+ * LECTURA INTELIGENTE DE PPCV3 PARA PLANEACIÓN SEMANAL
+ */
+function apiFetchWeeklyPlanData() {
+  try {
+    const sheet = findSheetSmart(APP_CONFIG.ppcSheetName);
+    if (!sheet) return { success: false, message: "No existe la hoja PPCV3" };
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return { success: true, headers: [], data: [] };
+
+    const headerRowIdx = findHeaderRow(data);
+    if (headerRowIdx === -1) return { success: false, message: "Cabeceras no encontradas en PPCV3." };
+
+    const originalHeaders = data[headerRowIdx].map(h => String(h).trim());
+    
+    // Normalizar Cabeceras (Mapeo Inteligente)
+    const mappedHeaders = originalHeaders.map(h => {
+        const up = h.toUpperCase();
+        if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
+        if (up.includes("INVOLUCRADOS") || up.includes("RESPONSABLE")) return "RESPONSABLE";
+        if (up.includes("ALTA") || up.includes("FECHA")) return "FECHA";
+        if (up.includes("RELOJ") || up.includes("HORAS")) return "RELOJ";
+        if (up.includes("ARCHIV") || up.includes("CLIP")) return "ARCHIVO";
+        if (up.includes("CUMPLIMIENTO")) return "CUMPLIMIENTO";
+        return up; 
+    });
+
+    const displayHeaders = ["SEMANA", ...mappedHeaders];
+    
+    const rows = data.slice(headerRowIdx + 1);
+    const result = rows.map((r, i) => {
+      const rowObj = { _rowIndex: headerRowIdx + i + 2 };
+      
+      mappedHeaders.forEach((h, colIdx) => {
+        let val = r[colIdx];
+        if (val instanceof Date) {
+           val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
+        }
+        rowObj[h] = val;
+      });
+
+      // Calculo de Semana
+      const fechaVal = rowObj["FECHA"];
+      let semanaNum = "-";
+      if (fechaVal) {
+        let dateObj = null;
+        if (String(fechaVal).includes("/")) {
+          const parts = String(fechaVal).split("/"); 
+          if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]);
+        } else if (fechaVal instanceof Date) {
+          dateObj = fechaVal;
+        } else {
+          dateObj = new Date(fechaVal);
+        }
+        if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
+      }
+      rowObj["SEMANA"] = semanaNum;
+      
+      return rowObj;
+    }).filter(r => r["CONCEPTO"] || r["ID"] || r["FOLIO"]); 
+
+    return { success: true, headers: displayHeaders, data: result.reverse() }; 
+  } catch (e) {
+    console.error(e);
+    return { success: false, message: e.toString() };
+  }
+}
+
+// Helper: Semana ISO
+function getWeekNumber(d) {
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+  return weekNo;
 }
 
 function apiFetchSalesData() { try { const s = findSheetSmart(APP_CONFIG.salesSheetName);
