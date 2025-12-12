@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V131</title>
+  <title>Holtmont V138 - Cascade Projects</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -105,6 +107,42 @@
     .custom-modal-footer { padding: 15px; background: #f8f9fa; border-top: 1px solid #dee2e6; text-align: right; }
     .chip-select { cursor: pointer; padding: 6px 12px; border-radius: 20px; background: #f1f3f5; color: #495057; font-size: 11px; margin-right: 5px; margin-bottom: 5px; display: inline-block; border: 1px solid #dee2e6; transition: 0.2s; font-weight: 500; }
     .chip-select.active { background: #3699ff; color: white; border-color: #3699ff; box-shadow: 0 2px 5px rgba(54, 153, 255, 0.3); }
+
+    /* ESTILOS NUEVOS: PROYECTOS EN CASCADA (V138) */
+    .cascade-container { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
+    .cascade-item { cursor: pointer; transition: all 0.2s; border-bottom: 1px solid #f0f2f5; position: relative; }
+    .cascade-item:hover { background-color: #f8faff; }
+    
+    /* Nivel 1: Sitios (Ej: NIDEC) */
+    .cascade-header { padding: 15px 20px; background: #fff; font-weight: 600; color: #343a40; display: flex; align-items: center; border-left: 4px solid transparent; }
+    .cascade-header:hover { border-left-color: var(--accent); }
+    .cascade-header .expand-icon { margin-right: 15px; color: #adb5bd; transition: transform 0.2s; width: 20px; text-align: center; }
+    .cascade-header.expanded .expand-icon { transform: rotate(90deg); color: var(--accent); }
+    
+    /* Contenedor de hijos */
+    .cascade-children { display: none; background-color: #fcfdfe; position: relative; }
+    .cascade-children.show { display: block; animation: fadeIn 0.3s ease; }
+    /* Línea conectora vertical */
+    .cascade-children::before { content: ''; position: absolute; top: 0; bottom: 15px; left: 28px; width: 2px; background-color: #e9ecef; z-index: 1; }
+
+    /* Nivel 2: Subproyectos (Ej: PPC TERRACERIAS) */
+    .cascade-subitem { padding: 12px 20px 12px 50px; display: flex; align-items: center; font-weight: 500; color: #495057; position: relative; z-index: 2; }
+    .cascade-subitem .expand-icon { margin-right: 10px; color: #ced4da; font-size: 11px; transition: transform 0.2s; }
+    .cascade-subitem.expanded .expand-icon { transform: rotate(90deg); color: var(--accent); }
+    .cascade-subitem .project-icon { margin-right: 10px; color: #6610f2; font-size: 14px; }
+
+    /* Nivel 3: Carpetas Finales (Ej: DOCUMENTOS) */
+    .cascade-folder { padding: 10px 20px 10px 85px; display: flex; align-items: center; color: #6c757d; font-size: 12px; position: relative; z-index: 2; transition: 0.2s; }
+    .cascade-folder:hover { background-color: #eef6fc; color: var(--accent); }
+    .cascade-folder i { margin-right: 10px; font-size: 13px; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+    
+    /* MODAL PROYECTO */
+    .project-type-option { padding: 10px; border: 1px solid #dee2e6; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; flex: 1; }
+    .project-type-option:hover { background: #f8f9fa; }
+    .project-type-option.selected { background: #e7f1ff; border-color: #0d6efd; color: #0d6efd; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -137,6 +175,11 @@
         <div class="nav-item" :class="{ active: currentView === 'DASHBOARD' }" @click="goHome">
             <div class="nav-icon-col"><i class="fas fa-th"></i></div>
             <span class="nav-text">Dashboard</span>
+        </div>
+        
+        <div class="nav-item" :class="{ active: currentView === 'PROJECTS' }" @click="currentView = 'PROJECTS'; currentDept = ''; currentModuleId = '';">
+            <div class="nav-icon-col"><i class="fas fa-project-diagram"></i></div>
+            <span class="nav-text">Proyectos</span>
         </div>
         
         <div v-if="config.specialModules.length">
@@ -173,6 +216,7 @@
       </div>
 
       <div class="view-area" v-if="!['IFRAME', 'MODULE_TABS'].includes(currentView)">
+        
         <div v-if="currentView === 'DASHBOARD'" class="row g-3">
           <div class="col-md-4 col-lg-3" v-for="mod in config.specialModules" :key="mod.id">
             <div class="dept-card" @click="openModule(mod)" :style="{borderTop: '4px solid '+mod.color}">
@@ -186,6 +230,62 @@
                 <h6 class="fw-bold" :style="{color: dept.color}">{{dept.label}}</h6>
             </div>
           </div>
+        </div>
+
+        <div v-if="currentView === 'PROJECTS'" class="animate__animated animate__fadeIn h-100 d-flex flex-column">
+          
+          <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="d-flex align-items-center">
+                  <h4 class="fw-bold text-secondary m-0"><i class="fas fa-briefcase me-2"></i>EXPLORADOR DE PROYECTOS</h4>
+              </div>
+              <div>
+                   <button class="btn btn-success btn-sm fw-bold shadow-sm me-2" @click="openPpcProjectSelector">
+                      <i class="fas fa-plus me-1"></i> NUEVO SITIO
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" @click="goHome">Cerrar</button>
+              </div>
+          </div>
+
+          <div class="cascade-container flex-fill overflow-auto">
+              
+              <div v-for="site in activeProjectsList" :key="site.id" class="cascade-item-wrapper">
+                  
+                  <div class="cascade-item cascade-header" :class="{expanded: site.expanded}" @click="toggleExpand(site)">
+                      <i class="expand-icon fas fa-chevron-right"></i>
+                      <i class="fas fa-building text-primary me-2 opacity-75"></i>
+                      <span>{{ site.name }}</span>
+                      <span class="ms-auto badge bg-light text-muted border">{{ site.client }}</span>
+                  </div>
+
+                  <div class="cascade-children" :class="{show: site.expanded}">
+                      
+                      <div v-for="(sub, sIdx) in site.subProjects" :key="sIdx" class="cascade-item-wrapper">
+                          
+                          <div class="cascade-item cascade-subitem" :class="{expanded: sub.expanded}" @click="toggleExpand(sub)">
+                              <i class="expand-icon fas fa-chevron-right"></i>
+                              <i class="project-icon fas" :class="sub.icon || 'fa-clipboard-list'"></i>
+                              <span>{{ sub.name }}</span>
+                              <small class="ms-2 text-muted">({{ sub.type }})</small>
+                          </div>
+
+                          <div class="cascade-children" :class="{show: sub.expanded}">
+                               <div v-for="(folder, fIdx) in projectSubFolders" :key="fIdx" 
+                                    class="cascade-item cascade-folder" 
+                                    @click.stop="openFolderContent(folder, sub.name)">
+                                   <i class="fas" :class="folder.icon" :style="{color: folder.color}"></i>
+                                   <span>{{ folder.name }}</span>
+                               </div>
+                          </div>
+
+                      </div>
+                      <div v-if="!site.subProjects || site.subProjects.length === 0" class="text-muted small p-3 ps-5 ms-4 fst-italic">
+                          No hay proyectos en este sitio.
+                      </div>
+
+                  </div>
+                  </div>
+              </div>
+
         </div>
 
         <div v-if="currentView === 'DEPT'">
@@ -407,9 +507,25 @@
 
         <div v-if="currentView === 'PPC_FORM'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
            <div class="d-flex justify-content-between align-items-center mb-3">
-               <h5 class="m-0 text-primary"><i class="fas fa-th me-2"></i>PPC Maestro</h5>
-               <button class="btn btn-light border" @click="goHome">Cerrar</button>
+               <div class="d-flex align-items-center">
+                   <h5 class="m-0 text-primary me-3"><i class="fas fa-th me-2"></i>PPC Maestro</h5>
+                   
+                   <div v-if="currentPpcProject" class="badge bg-light text-dark border p-2 d-flex align-items-center animate__animated animate__fadeIn">
+                       <i class="fas fa-folder-open text-warning me-2"></i>
+                       <span>{{ currentPpcProject.name }}</span>
+                       <span class="ms-2 badge" :class="currentPpcProject.type === 'INTERNO' ? 'bg-secondary' : (currentPpcProject.type === 'PREOPERATIVO' ? 'bg-warning text-dark' : 'bg-primary')">{{ currentPpcProject.type }}</span>
+                       <button class="btn btn-sm ms-2 text-danger p-0" @click="currentPpcProject = null" title="Quitar filtro"><i class="fas fa-times"></i></button>
+                   </div>
+               </div>
+
+               <div>
+                   <button class="btn btn-success fw-bold btn-sm me-2 shadow-sm" @click="openPpcProjectSelector">
+                       <i class="fas fa-plus-circle me-1"></i> PPC NUEVO
+                   </button>
+                   <button class="btn btn-light border btn-sm" @click="goHome">Cerrar</button>
+               </div>
            </div>
+
            <div class="d-flex mb-3 align-items-end justify-content-center position-relative" style="min-height: 90px;">
                <div class="excel-container" style="height: auto; max-height: none; overflow: visible; flex:none; width: fit-content; z-index: 1; border:none; box-shadow:none; background: transparent;">
                    <table class="table-excel mini-table" style="background: white; border: 1px solid #999;"> 
@@ -477,6 +593,62 @@
           <div class="custom-modal-footer"><button class="btn btn-primary btn-sm w-100" @click="confirmAddToQueue">Agregar</button></div>
       </div>
   </div>
+
+  <div v-if="showPpcSelectorModal" class="custom-modal-overlay">
+      <div class="custom-modal" style="width: 500px;">
+          <div class="custom-modal-header">
+              <span>Gestión de PPC</span>
+              <button type="button" class="btn-close" @click="showPpcSelectorModal = false"></button>
+          </div>
+          <div class="custom-modal-body">
+              <ul class="nav nav-tabs mb-3">
+                  <li class="nav-item"><a class="nav-link" :class="{active: ppcMode === 'SELECT'}" href="#" @click.prevent="ppcMode = 'SELECT'">Proyectos Activos</a></li>
+                  <li class="nav-item"><a class="nav-link" :class="{active: ppcMode === 'CREATE'}" href="#" @click.prevent="ppcMode = 'CREATE'">Crear Nuevo</a></li>
+              </ul>
+
+              <div v-if="ppcMode === 'SELECT'">
+                  <p class="small text-muted mb-2">Selecciona un proyecto para cargar tareas:</p>
+                  <div class="list-group" style="max-height: 250px; overflow-y: auto;">
+                      <template v-for="site in activeProjectsList" :key="site.id">
+                          <div class="list-group-item list-group-item-light fw-bold small text-uppercase bg-light">
+                              <i class="fas fa-building me-1"></i> {{ site.name }}
+                          </div>
+                          <a href="#" v-for="sub in (site.subProjects || [])" :key="sub.name"
+                             class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ps-4"
+                             @click.prevent="selectPpcProject(sub)">
+                              <div>
+                                  <i class="fas fa-angle-right me-2 text-muted"></i>
+                                  <strong>{{ sub.name }}</strong>
+                              </div>
+                              <span class="badge bg-secondary" style="font-size: 0.65rem">{{ sub.type }}</span>
+                          </a>
+                      </template>
+                  </div>
+              </div>
+
+              <div v-if="ppcMode === 'CREATE'">
+                  <div class="mb-3">
+                      <label class="form-label small fw-bold">Nombre del Proyecto</label>
+                      <input v-model="newProject.name" class="form-control" placeholder="Ej: PPC NAVE 4">
+                  </div>
+                  <div class="mb-3">
+                      <label class="form-label small fw-bold">Cliente / Área</label>
+                      <input v-model="newProject.client" class="form-control" placeholder="Ej: NIDEC">
+                  </div>
+                  <div class="mb-3">
+                      <label class="form-label small fw-bold">Tipo de PPC</label>
+                      <div class="d-flex gap-2">
+                          <div class="project-type-option" :class="{selected: newProject.type === 'INTERNO'}" @click="newProject.type = 'INTERNO'">INTERNO</div>
+                          <div class="project-type-option" :class="{selected: newProject.type === 'CLIENTE'}" @click="newProject.type = 'CLIENTE'">CLIENTE</div>
+                          <div class="project-type-option" :class="{selected: newProject.type === 'PREOPERATIVO'}" @click="newProject.type = 'PREOPERATIVO'">PREOPERATIVO</div>
+                      </div>
+                  </div>
+                  <button class="btn btn-primary w-100" @click="createNewProject" :disabled="!newProject.name || !newProject.type">CREAR Y SELECCIONAR</button>
+              </div>
+          </div>
+      </div>
+  </div>
+
 </div>
 
 <script>
@@ -507,13 +679,101 @@
 
       // --- FILTRO DE SEMANA ---
       const selectedWeek = ref(''); 
+      const currentModuleId = ref('');
+
+      // --- GESTIÓN DE PROYECTOS (V138 - CASCADA) ---
+      // Nota: Ya no se usa projectLevel para navegacion drill-down
+      
+      // NUEVO: ESTADO PARA PPC
+      const showPpcSelectorModal = ref(false);
+      const ppcMode = ref('SELECT');
+      const currentPpcProject = ref(null);
+      const newProject = ref({ name: '', client: '', type: 'CLIENTE' });
+
+      // LISTA MAESTRA CON ESTADO DE EXPANSION
+      const activeProjectsList = ref([
+          { 
+            id: 1, name: "NIDEC REYNOSA", client: "NIDEC", status: "Activo", type: "CLIENTE", expanded: false,
+            subProjects: [
+               { name: "PPC TERRACERIAS", type: "OBRA CIVIL", icon: "fa-tractor", expanded: false },
+               { name: "PPC AMPLIACION", type: "CONSTRUCCION", icon: "fa-hard-hat", expanded: false },
+               { name: "PPC AIRES", type: "HVAC", icon: "fa-fan", expanded: false }
+            ]
+          }
+      ]);
+
+      const projectSubFolders = ref([
+          { name: "DOCUMENTOS", icon: "fa-file-alt", color: "#3699ff", bg: "#e1f0ff" },
+          { name: "PLANOS Y DISEÑOS", icon: "fa-drafting-compass", color: "#6610f2", bg: "#eee5ff" },
+          { name: "FOTOGRAFIAS", icon: "fa-images", color: "#e83e8c", bg: "#ffe2e5" },
+          { name: "CORRESPONDENCIA", icon: "fa-envelope-open-text", color: "#ffc107", bg: "#fff4de" },
+          { name: "REPORTES", icon: "fa-chart-pie", color: "#198754", bg: "#c9f7f5" }
+      ]);
+
+      const projectCards = ref([/* removed from cascading view */]);
+
+      // --- FUNCIONES DE NAVEGACION CASCADA (V138) ---
+      
+      const toggleExpand = (item) => {
+          item.expanded = !item.expanded;
+      };
+
+      const openFolderContent = (folder, projectName) => {
+          Swal.fire({
+              title: `${folder.name} (${projectName})`,
+              text: 'Carpeta vacía por el momento.',
+              icon: 'info',
+              iconColor: folder.color,
+              confirmButtonColor: folder.color
+          });
+      };
+
+      // --- FUNCIONES PPC NUEVO ---
+      const openPpcProjectSelector = () => {
+          showPpcSelectorModal.value = true;
+          ppcMode.value = 'SELECT';
+          newProject.value = { name: '', client: '', type: 'CLIENTE' };
+      };
+
+      const selectPpcProject = (proj) => {
+          currentPpcProject.value = proj;
+          showPpcSelectorModal.value = false;
+          // Si estamos en la vista de proyectos, vamos al PPC Form
+          if (currentView.value === 'PROJECTS') {
+              openModule({ id: 'PPC_MASTER', type: 'ppc_native' });
+          }
+      };
+
+      const createNewProject = () => {
+          // Nota: Por ahora crea un proyecto "suelto" en la lista de sitios, 
+          // idealmente deberia haber logica para asignarlo a un sitio.
+          // Lo agregamos como un Sitio nuevo para simplificar la demo.
+          const newId = activeProjectsList.value.length + 1;
+          const proj = {
+              id: newId,
+              name: newProject.value.name.toUpperCase(),
+              client: newProject.value.client.toUpperCase(),
+              status: 'Nuevo',
+              type: newProject.value.type,
+              expanded: true, // Auto expandir el nuevo
+              subProjects: [] // Nuevo sitio inicia vacio
+          };
+          activeProjectsList.value.push(proj);
+          selectPpcProject(proj);
+          Swal.fire({
+              icon: 'success',
+              title: 'Proyecto Creado',
+              text: `Se ha agregado ${proj.name}.`,
+              timer: 1500,
+              showConfirmButton: false
+          });
+      };
 
       const salesStaff = computed(() => (config.value.directory || []).filter(p => p.dept === 'VENTAS' && p.name !== 'ANTONIA_VENTAS').map(p => p.name));
       const filteredStaff = computed(() => config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase())));
       const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
       const pageTitle = computed(() => currentView.value);
       const currentDeptData = computed(() => config.value.departments[currentDept.value] || {});
-      const currentModuleId = ref('');
 
       const deptStats = computed(() => {
           const stats = []; let totalActual=0; let totalCumplidas=0; let totalGlobalDB=0;
@@ -565,12 +825,10 @@
                const n = t - s;
                const p = t > 0 ? Math.round((s/t)*100) : 0;
                
-               // Agregamos todas las especialidades a la lista
                stats.push({ label: label, total: t, si: s, no: n, avg: p + '%' });
                grandTotal += t; grandSi += s;
            }
            
-           // Fila TOTAL
            const grandNo = grandTotal - grandSi;
            const grandAvg = grandTotal > 0 ? Math.round((grandSi/grandTotal)*100) : 0;
            stats.push({ label: 'TOTAL GLOBAL', total: grandTotal, si: grandSi, no: grandNo, avg: grandAvg + '%', isTotal: true });
@@ -692,7 +950,21 @@
       const openFileDialog = () => fileInput.value.click();
       const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
       const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
-      const confirmAddToQueue = () => { const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos; item.clasificacion = extraData.value.clasificacion; let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); };
+      const confirmAddToQueue = () => { 
+          const item = JSON.parse(JSON.stringify(ppcData.value)); 
+          item.responsable = selectedResponsables.value.join(','); 
+          item.restricciones = extraData.value.restricciones; 
+          item.prioridades = extraData.value.prioridades; 
+          item.riesgos = extraData.value.riesgos; 
+          item.clasificacion = extraData.value.clasificacion; 
+          
+          // Vincular al Proyecto Actual si existe
+          if(currentPpcProject.value) {
+              item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + `[PROY: ${currentPpcProject.value.name}]`;
+          }
+
+          let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); 
+      };
       const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
       const saveDynamicPPC = () => { if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); isSubmitting.value = true; let fResp = dynamicPpc.value.fechaFin; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } const payload = { especialidad: dynamicPpc.value.especialidad, concepto: dynamicPpc.value.concepto, responsable: selectedResponsables.value.join(','), clasificacion: dynamicPpc.value.clasificacion, riesgos: dynamicPpc.value.riesgos, prioridad: dynamicPpc.value.prioridad, fechaRespuesta: fResp, archivoUrl: dynamicPpc.value.archivoUrl, comentarios: dynamicPpc.value.comentarios, horas: '', cumplimiento: 'NO' }; google.script.run.withSuccessHandler(res => { isSubmitting.value = false; if(res.success){ Swal.fire('Registro Guardado','Enviado a PPC y Tracker','success'); dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; } else { Swal.fire('Error', res.message, 'error'); } }).withFailureHandler(handleErr).apiSavePPCData([payload]); };
       const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
@@ -701,7 +973,11 @@
       const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
       const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
       
-      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData };
+      return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData, 
+      // NEW & UPDATED EXPORTS FOR CASCADING PROJECTS
+      projectCards, activeProjectsList, projectSubFolders, openFolderContent, toggleExpand,
+      showPpcSelectorModal, openPpcProjectSelector, ppcMode, selectPpcProject, createNewProject, newProject, currentPpcProject 
+      };
     }
   });
   app.config.errorHandler = (err) => { console.error(err); Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
