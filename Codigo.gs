@@ -1,12 +1,11 @@
 /**
  * ======================================================================
- * HOLTMONT WORKSPACE V128 - SCRIPTMASTER EDITION
- * Optimizado: Batch Write, Smart Headers, KPI Dashboard Support
+ * HOLTMONT WORKSPACE V129 - SCRIPTMASTER EDITION
+ * Optimizado: Batch Write, Smart Headers, KPI Dashboard, DB Relacional, UPSERT
  * ======================================================================
  */
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
-
 // --- CONFIGURACIÓN ---
 const APP_CONFIG = {
   folderIdUploads: "", 
@@ -45,18 +44,24 @@ function findSheetSmart(name) {
   return null;
 }
 
-// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster)
+// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster) - V2 (Prioriza DB)
 function findHeaderRow(values) {
   for (let i = 0; i < Math.min(100, values.length); i++) {
     const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
     
-    // 1. Tracker Estandar
-    if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO")) return i;
-    
-    // 2. Staff Antiguo
+    // 5. DB Generica (Sitios/Proyectos) - PRIORIDAD ALTA
+    if (rowStr.includes("ID_SITIO") || rowStr.includes("ID_PROYECTO")) return i;
+
+    // 1. Tracker Estandar (Administrativos/Staff)
+    if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO") && 
+       (rowStr.includes("ALTA") || rowStr.includes("AVANCE") || rowStr.includes("STATUS") || rowStr.includes("FECHA"))) {
+      return i;
+    }
+
+    // 2. Staff Antiguo (Fallback)
     if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE")) return i;
-    
-    // 3. CASO PPCV3 (Flexible): Acepta ID o FOLIO + DESCRIPCION o RESPONSABLE
+
+    // 3. CASO PPCV3 (Flexible)
     if ((rowStr.includes("FOLIO") || rowStr.includes("ID")) && 
         (rowStr.includes("DESCRIPCI") || rowStr.includes("RESPONSABLE") || rowStr.includes("CONCEPTO"))) {
       return i;
@@ -163,14 +168,14 @@ function getSystemConfig(role) {
   };
 
   if (role === 'TONITA') return { departments: { "VENTAS": allDepts["VENTAS"] }, allDepartments: allDepts, staff: [ { name: "ANTONIA_VENTAS", dept: "VENTAS" } ], directory: fullDirectory, specialModules: [] };
-
+  
   const ppcModules = [
       { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" },
       { id: "WEEKLY_PLAN", label: "Planeación Semanal", icon: "fa-calendar-alt", color: "#6f42c1", type: "weekly_plan_view" }
   ];
 
   if (role === 'PPC_ADMIN') return { departments: {}, allDepartments: allDepts, staff: [], directory: fullDirectory, specialModules: ppcModules };
-
+  
   if (role === 'ADMIN_CONTROL') {
     return {
       departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
@@ -206,6 +211,7 @@ function apiFetchStaffTrackerData(personName) {
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
     
+    // USAMOS EL BUSCADOR DE CABECERAS MEJORADO
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
     
@@ -220,16 +226,15 @@ function apiFetchStaffTrackerData(personName) {
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-
+    
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-
+      
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
-
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -246,7 +251,6 @@ function apiFetchStaffTrackerData(personName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
-
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
         rowObj['_rowIndex'] = headerRowIndex + i + 2;
@@ -265,21 +269,17 @@ function apiFetchStaffTrackerData(personName) {
 
 /**
  * ======================================================================
- * OPTIMIZACIÓN SCRIPTMASTER: ESCRITURA QUIRÚRGICA E INTELIGENTE
- * Detecta si es un solo cambio para escribir solo esa fila.
+ * OPTIMIZACIÓN SCRIPTMASTER: UPSERT (ACTUALIZAR O INSERTAR)
+ * Corregido para que guarde tareas nuevas en el Tracker del Staff
  * ======================================================================
  */
 function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
-
   try {
     const sheet = findSheetSmart(sheetName);
     if (!sheet) return { success: false, message: "Hoja no encontrada: " + sheetName };
-
-    // Leemos datos para mapear
     const dataRange = sheet.getDataRange();
     let values = dataRange.getValues();
     if (values.length === 0) return { success: false, message: "Hoja vacía" };
@@ -290,7 +290,8 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-
+    
+    // MAPEO ROBUSTO DE ALIAS
     const getColIdx = (key) => {
       const k = key.toUpperCase();
       if (colMap[k] !== undefined) return colMap[k];
@@ -300,7 +301,10 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         'RESPONSABLE': ['RESPONSABLE', 'INVOLUCRADOS'],
         'RELOJ': ['RELOJ', 'HORAS', 'DIAS'],
         'ESTATUS': ['ESTATUS', 'STATUS'],
-        'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'] // Alias crítico
+        'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'],
+        'AVANCE': ['AVANCE', 'AVANCE %', '% AVANCE'],
+        'ALTA': ['ALTA', 'AREA'], 
+        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA']
       };
       for (let main in aliases) {
         if (aliases[main].includes(k)) {
@@ -311,46 +315,78 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     };
 
     const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
-    let singleRowIndex = -1; // Para optimización
+    let rowsToAppend = [];
+    let singleRowIndex = -1;
+    let modified = false;
 
     tasksArray.forEach(task => {
       let rowIndex = -1;
-
-      // Usamos el índice de fila si viene del frontend (Más seguro y rápido)
+      
+      // 1. Intentar buscar fila existente
       if (task._rowIndex) {
-        rowIndex = parseInt(task._rowIndex) - 1; // Ajuste a base 0
+        rowIndex = parseInt(task._rowIndex) - 1; 
       } else {
-        // Búsqueda fallback por ID
         const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
-        for (let i = headerRowIndex + 1; i < values.length; i++) {
-           const row = values[i];
-           if (folioIdx > -1 && String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
+        if (tFolio) {
+          for (let i = headerRowIndex + 1; i < values.length; i++) {
+             const row = values[i];
+             if (folioIdx > -1 && String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
+          }
         }
       }
 
+      // 2. Si existe -> ACTUALIZAR
       if (rowIndex > -1 && rowIndex < values.length) {
-        // UPDATE en memoria
         Object.keys(task).forEach(key => {
           if (key.startsWith('_')) return;
           const cIdx = getColIdx(key);
           if (cIdx > -1) values[rowIndex][cIdx] = task[key];
         });
         singleRowIndex = rowIndex;
+        modified = true;
+      } 
+      // 3. Si NO existe -> PREPARAR PARA INSERTAR (UPSERT)
+      else {
+          const newRow = new Array(headers.length).fill("");
+          Object.keys(task).forEach(key => {
+              if (key.startsWith('_')) return;
+              const cIdx = getColIdx(key);
+              if (cIdx > -1) newRow[cIdx] = task[key];
+          });
+          // Asegurar que tenga el ID si es nuevo
+          if (folioIdx > -1 && !newRow[folioIdx] && (task['FOLIO'] || task['ID'])) {
+              newRow[folioIdx] = task['FOLIO'] || task['ID'];
+          }
+          rowsToAppend.push(newRow);
       }
     });
 
-    // --- ESCRITURA OPTIMIZADA (QUIRÚRGICA) ---
-    // Si solo modificamos una fila, escribimos SOLO esa fila.
-    if (tasksArray.length === 1 && singleRowIndex > -1) {
-       // Escribimos en (FilaReal, Columna 1, 1 Fila, AnchoTotal)
-       sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
-    } else {
-       // Si son muchos cambios, escribimos todo el bloque (Batch tradicional)
-       sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+    // --- ESCRITURA ---
+    // A. Actualizar existentes
+    if (modified) {
+       if (tasksArray.length === 1 && singleRowIndex > -1 && rowsToAppend.length === 0) {
+          sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
+       } else {
+          sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+       }
+    }
+
+    // B. Insertar nuevas (APPEND) - ESTO FALTABA
+    if (rowsToAppend.length > 0) {
+        // Encontrar donde empieza la sección de "TAREAS REALIZADAS" para insertar antes, o al final si no existe
+        let insertIndex = sheet.getLastRow() + 1;
+        
+        // Opcional: Buscar si hay una fila divisora de historial y escribir antes
+        // Por simplicidad y robustez, escribimos al final de la tabla de datos actual, antes de filas vacías masivas
+        // Pero dado el formato del usuario, un appendRow simple suele ser lo más seguro.
+        // Sin embargo, para respetar Batch, usamos getRange.
+        
+        const startRow = sheet.getLastRow() + 1;
+        sheet.getRange(startRow, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
     
+    SpreadsheetApp.flush(); // Forzar guardado inmediato
     return { success: true };
-
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
@@ -359,12 +395,10 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   }
 }
 
-// NUEVA FUNCIÓN PARA GUARDAR CAMBIOS DE PPCV3
 function apiUpdatePPCV3(taskData) {
   return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]);
 }
 
-// Wrapper para llamadas individuales
 function internalUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
@@ -390,7 +424,6 @@ function apiUpdateTask(personName, taskData) {
   return { success: false, message: "Ocupado." };
 }
 
-// --- GESTIÓN DE BORRADORES ---
 function apiFetchDrafts() {
   try {
     const sheet = findSheetSmart(APP_CONFIG.draftSheetName);
@@ -442,10 +475,6 @@ function apiClearDrafts() {
   } catch(e) { return { success: false }; }
 }
 
-// ======================================================================
-// FUNCION CRITICA OPTIMIZADA
-// REQUERIMIENTO: Enviar a Trabajador + Duplicar Admin + Guardar PPCV3
-// ======================================================================
 function apiSavePPCData(payload) {
   const lock = LockService.getScriptLock();
   if (lock.tryLock(20000)) { 
@@ -474,43 +503,26 @@ function apiSavePPCData(payload) {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           
           rowsForPPC.push([
-             id, 
-             item.especialidad, item.concepto, item.responsable, fechaHoy, 
-             item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, 
-             item.comentariosPrevios || ""
+             id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
+             item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
           ]);
 
           const taskData = {
-                 'FOLIO': id, 
-                 'CONCEPTO': item.concepto, 
-                 'CLASIFICACION': item.clasificacion || "Media", 
-                 'ALTA': item.especialidad, 
-                 'INVOLUCRADOS': item.responsable, 
-                 'FECHA': fechaStr,
-                 'RELOJ': item.horas, 
-                 'ESTATUS': "ASIGNADO", 
-                 'PRIORIDAD': item.prioridad || item.prioridades, 
-                 'RESTRICCIONES': item.restricciones, 
-                 'RIESGOS': item.riesgos, 
-                 'FECHA_RESPUESTA': item.fechaRespuesta, 
-                 'AVANCE': "0%"
+                 'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
+                 'ALTA': item.especialidad, 'INVOLUCRADOS': item.responsable, 'FECHA': fechaStr,
+                 'RELOJ': item.horas, 'ESTATUS': "ASIGNADO", 'PRIORIDAD': item.prioridad || item.prioridades, 
+                 'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%"
           };
-          // DUPLICADO EN ADMIN
           addTaskToSheet("ADMINISTRADOR", taskData);
-          // DISTRIBUCION
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
-          responsables.forEach(personName => {
-             addTaskToSheet(personName, taskData);
-          });
+          responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
 
-      // A. Guardar en PPCV3
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
 
-      // B. Distribuir BATCH
       for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
           internalBatchUpdateTasks(targetSheet, tasks);
       }
@@ -519,9 +531,7 @@ function apiSavePPCData(payload) {
     } catch (e) { 
         console.error(e);
         return { success: false, message: e.toString() };
-    } finally { 
-        lock.releaseLock();
-    }
+    } finally { lock.releaseLock(); }
   }
   return { success: false, message: "Sistema Ocupado, intenta de nuevo." };
 }
@@ -542,8 +552,7 @@ function uploadFileToDrive(data, type, name) {
 function apiFetchPPCData() { 
   try { 
     const s = findSheetSmart(APP_CONFIG.ppcSheetName);
-    if(!s) return {success:true,data:[]}; 
-    
+    if(!s) return {success:true,data:[]};
     const range = s.getDataRange();
     const values = range.getValues();
     if (values.length < 2) return {success:true, data:[]};
@@ -569,15 +578,9 @@ function apiFetchPPCData() {
     const resultData = dataRows.map(r => {
       const getVal = (idx) => (idx > -1 && r[idx] !== undefined) ? r[idx] : "";
       return {
-        id: getVal(colMap.id),
-        especialidad: getVal(colMap.esp),
-        concepto: getVal(colMap.con),
-        responsable: getVal(colMap.resp),
-        fechaAlta: getVal(colMap.fecha),
-        horas: getVal(colMap.reloj),
-        cumplimiento: getVal(colMap.cump),
-        archivoUrl: getVal(colMap.arch),
-        comentarios: getVal(colMap.com),
+        id: getVal(colMap.id), especialidad: getVal(colMap.esp), concepto: getVal(colMap.con),
+        responsable: getVal(colMap.resp), fechaAlta: getVal(colMap.fecha), horas: getVal(colMap.reloj),
+        cumplimiento: getVal(colMap.cump), archivoUrl: getVal(colMap.arch), comentarios: getVal(colMap.com),
         comentariosPrevios: getVal(colMap.prev)
       };
     }).filter(x => x.concepto).reverse();
@@ -585,23 +588,16 @@ function apiFetchPPCData() {
   } catch(e){ return {success:false, message: e.toString()} } 
 }
 
-/**
- * LECTURA INTELIGENTE DE PPCV3 PARA PLANEACIÓN SEMANAL
- */
 function apiFetchWeeklyPlanData() {
   try {
     const sheet = findSheetSmart(APP_CONFIG.ppcSheetName);
     if (!sheet) return { success: false, message: "No existe la hoja PPCV3" };
-
     const data = sheet.getDataRange().getValues();
     if (data.length < 2) return { success: true, headers: [], data: [] };
-
     const headerRowIdx = findHeaderRow(data);
     if (headerRowIdx === -1) return { success: false, message: "Cabeceras no encontradas en PPCV3." };
-
     const originalHeaders = data[headerRowIdx].map(h => String(h).trim());
     
-    // Normalizar Cabeceras (Mapeo Inteligente)
     const mappedHeaders = originalHeaders.map(h => {
         const up = h.toUpperCase();
         if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
@@ -612,13 +608,10 @@ function apiFetchWeeklyPlanData() {
         if (up.includes("CUMPLIMIENTO")) return "CUMPLIMIENTO";
         return up; 
     });
-
     const displayHeaders = ["SEMANA", ...mappedHeaders];
-    
     const rows = data.slice(headerRowIdx + 1);
     const result = rows.map((r, i) => {
       const rowObj = { _rowIndex: headerRowIdx + i + 2 };
-      
       mappedHeaders.forEach((h, colIdx) => {
         let val = r[colIdx];
         if (val instanceof Date) {
@@ -627,7 +620,6 @@ function apiFetchWeeklyPlanData() {
         rowObj[h] = val;
       });
 
-      // Calculo de Semana
       const fechaVal = rowObj["FECHA"];
       let semanaNum = "-";
       if (fechaVal) {
@@ -635,11 +627,7 @@ function apiFetchWeeklyPlanData() {
         if (String(fechaVal).includes("/")) {
           const parts = String(fechaVal).split("/"); 
           if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]);
-        } else if (fechaVal instanceof Date) {
-          dateObj = fechaVal;
-        } else {
-          dateObj = new Date(fechaVal);
-        }
+        } else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
       rowObj["SEMANA"] = semanaNum;
@@ -654,7 +642,6 @@ function apiFetchWeeklyPlanData() {
   }
 }
 
-// Helper: Semana ISO
 function getWeekNumber(d) {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -665,7 +652,191 @@ function getWeekNumber(d) {
 
 function apiFetchSalesData() { try { const s = findSheetSmart(APP_CONFIG.salesSheetName);
 if(!s) return {success:true,data:[],headers:[]};
-const d = s.getDataRange().getValues(); return {success:true, headers:d[0], data:d.slice(1).map(r=>{let o={};d[0].forEach((h,i)=>o[h]=r[i]);return o;})};
+const d = s.getDataRange().getValues();
+return {success:true, headers:d[0], data:d.slice(1).map(r=>{let o={};d[0].forEach((h,i)=>o[h]=r[i]);return o;})};
 } catch(e){return {success:false}} }
 function apiSaveSaleData(j) { const s = findSheetSmart(APP_CONFIG.salesSheetName);
 s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||"")); return {success:true}; }
+
+
+/**
+ * ======================================================================
+ * GESTIÓN DE PROYECTOS EN CASCADA (DB_SITIOS y DB_PROYECTOS)
+ * ======================================================================
+ */
+
+// 1. Guardar Nuevo Sitio (Padre) - CON FLUSH Y UPSERT VALIDATION
+function apiSaveSite(siteData) {
+  const lock = LockService.getScriptLock();
+  if (lock.tryLock(5000)) {
+    try {
+      let sheet = findSheetSmart("DB_SITIOS");
+      if (!sheet) {
+        sheet = SS.insertSheet("DB_SITIOS");
+        sheet.appendRow(["ID_SITIO", "NOMBRE", "CLIENTE", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
+      }
+      
+      const data = sheet.getDataRange().getValues();
+      const cleanName = siteData.name.toUpperCase().trim();
+      const nameColIdx = data.length > 0 ? data[0].indexOf("NOMBRE") : 1;
+      
+      for(let i=1; i<data.length; i++) {
+         if (data[i][nameColIdx] && String(data[i][nameColIdx]).toUpperCase().trim() === cleanName) {
+             return { success: false, message: "Ya existe un sitio con ese nombre." };
+         }
+      }
+
+      const id = "SITE-" + new Date().getTime(); // ID único simple
+      sheet.appendRow([
+        id,
+        cleanName,
+        siteData.client.toUpperCase().trim(),
+        siteData.type || "CLIENTE", 
+        "ACTIVO",
+        new Date(),
+        siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO"
+      ]);
+      
+      SpreadsheetApp.flush(); // FORZAR ESCRITURA
+      return { success: true, id: id, message: "Sitio creado correctamente." };
+    } catch (e) {
+      return { success: false, message: e.toString() };
+    } finally {
+      lock.releaseLock();
+    }
+  }
+  return { success: false, message: "El sistema está ocupado." };
+}
+
+// 2. Guardar Nuevo Subproyecto (Hijo) - CON FLUSH Y UPSERT VALIDATION
+function apiSaveSubProject(subProjectData) {
+  const lock = LockService.getScriptLock();
+  if (lock.tryLock(5000)) {
+    try {
+      let sheet = findSheetSmart("DB_PROYECTOS");
+      if (!sheet) {
+        sheet = SS.insertSheet("DB_PROYECTOS");
+        sheet.appendRow(["ID_PROYECTO", "ID_SITIO", "NOMBRE_SUBPROYECTO", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
+      }
+      
+      const cleanName = subProjectData.name.toUpperCase().trim();
+      const data = sheet.getDataRange().getValues();
+      let idSitioIdx = 1; 
+      let nameIdx = 2;
+      const headerRow = findHeaderRow(data);
+      if (headerRow > -1) {
+          const headers = data[headerRow].map(h=>String(h).toUpperCase());
+          idSitioIdx = headers.indexOf("ID_SITIO");
+          nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO");
+      }
+
+      for(let i=headerRow+1; i<data.length; i++) {
+          if (data[i][idSitioIdx] == subProjectData.parentId && 
+              String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
+              return { success: false, message: "Ya existe ese subproyecto en este sitio." };
+          }
+      }
+
+      const id = "PROJ-" + new Date().getTime();
+      sheet.appendRow([
+        id,
+        subProjectData.parentId,
+        cleanName,
+        subProjectData.type || "GENERAL", 
+        "ACTIVO",
+        new Date(),
+        subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO"
+      ]);
+      
+      SpreadsheetApp.flush(); // FORZAR ESCRITURA
+      return { success: true, id: id, message: "Subproyecto agregado." };
+    } catch (e) {
+      return { success: false, message: e.toString() };
+    } finally {
+      lock.releaseLock();
+    }
+  }
+  return { success: false, message: "El sistema está ocupado." };
+}
+
+// 3. Obtener Árbol Completo - SCRIPTMASTER FIX: MAPEO FLEXIBLE
+function apiFetchCascadeTree() {
+  try {
+    const sites = [];
+    const sheetSites = findSheetSmart("DB_SITIOS");
+    if (sheetSites) {
+      const values = sheetSites.getDataRange().getValues();
+      const headerRowIdx = findHeaderRow(values); 
+      
+      if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
+        const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
+        const colMap = {
+           id: headers.findIndex(h => h.includes("ID")),
+           name: headers.findIndex(h => h.includes("NOMBRE")),
+           client: headers.findIndex(h => h.includes("CLIENTE")),
+           type: headers.findIndex(h => h.includes("TIPO")),
+           status: headers.findIndex(h => h.includes("ESTATUS")),
+           date: headers.findIndex(h => h.includes("FECHA"))
+        };
+
+        for (let i = headerRowIdx + 1; i < values.length; i++) {
+          const row = values[i];
+          if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
+             let dateStr = "";
+             if (colMap.date > -1 && row[colMap.date]) {
+                 try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yy HH:mm"); } catch(e) {}
+             }
+             sites.push({
+               id: String(row[colMap.id]).trim(),
+               name: String(row[colMap.name]).trim(),
+               client: (colMap.client > -1) ? String(row[colMap.client]) : "",
+               type: (colMap.type > -1) ? String(row[colMap.type]) : "CLIENTE",
+               status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO",
+               createdAt: dateStr,
+               subProjects: [],
+               expanded: false
+             });
+          }
+        }
+      }
+    }
+
+    const sheetProjs = findSheetSmart("DB_PROYECTOS");
+    if (sheetProjs) {
+      const values = sheetProjs.getDataRange().getValues();
+      const headerRowIdx = findHeaderRow(values);
+      
+      if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
+        const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
+        const colMap = {
+           parentId: headers.findIndex(h => h.includes("SITIO") || h.includes("PADRE")),
+           name: headers.findIndex(h => h.includes("NOMBRE") || h.includes("SUBPROYECTO")),
+           type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")),
+           status: headers.findIndex(h => h.includes("ESTATUS"))
+        };
+
+        for (let i = headerRowIdx + 1; i < values.length; i++) {
+          const row = values[i];
+          if (colMap.parentId > -1 && colMap.name > -1 && row[colMap.parentId]) {
+             const parentId = String(row[colMap.parentId]).trim();
+             const parent = sites.find(s => String(s.id).trim() === parentId);
+             if (parent) {
+               parent.subProjects.push({
+                 id: row[0],
+                 name: String(row[colMap.name]).trim(),
+                 type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL",
+                 status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO",
+                 icon: "fa-clipboard-list"
+               });
+             }
+          }
+        }
+      }
+    }
+
+    return { success: true, data: sites };
+  } catch (e) {
+    console.error(e);
+    return { success: false, message: "Error leyendo DB: " + e.toString() };
+  }
+}
