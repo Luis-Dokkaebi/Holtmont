@@ -1,11 +1,12 @@
 /**
  * ======================================================================
  * HOLTMONT WORKSPACE V129 - SCRIPTMASTER EDITION
- * Optimizado: Batch Write, Smart Headers, KPI Dashboard, DB Relacional, UPSERT
+ * Optimizado: Batch Write, Smart Headers, KPI Dashboard, DB Relacional, UPSERT V2
  * ======================================================================
  */
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
+
 // --- CONFIGURACIÓN ---
 const APP_CONFIG = {
   folderIdUploads: "", 
@@ -48,25 +49,20 @@ function findSheetSmart(name) {
 function findHeaderRow(values) {
   for (let i = 0; i < Math.min(100, values.length); i++) {
     const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
-    
     // 5. DB Generica (Sitios/Proyectos) - PRIORIDAD ALTA
     if (rowStr.includes("ID_SITIO") || rowStr.includes("ID_PROYECTO")) return i;
-
     // 1. Tracker Estandar (Administrativos/Staff)
     if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO") && 
        (rowStr.includes("ALTA") || rowStr.includes("AVANCE") || rowStr.includes("STATUS") || rowStr.includes("FECHA"))) {
       return i;
     }
-
     // 2. Staff Antiguo (Fallback)
     if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE")) return i;
-
     // 3. CASO PPCV3 (Flexible)
     if ((rowStr.includes("FOLIO") || rowStr.includes("ID")) && 
         (rowStr.includes("DESCRIPCI") || rowStr.includes("RESPONSABLE") || rowStr.includes("CONCEPTO"))) {
       return i;
     }
-
     // 4. Ventas
     if (rowStr.includes("CLIENTE") && (rowStr.includes("VENDEDOR") || rowStr.includes("AREA"))) return i;
   }
@@ -208,16 +204,17 @@ function apiFetchStaffTrackerData(personName) {
   try {
     const sheet = findSheetSmart(personName);
     if (!sheet) return { success: true, data: [], history: [], headers: [], message: `Falta hoja: ${personName}` };
+    
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
-    
-    // USAMOS EL BUSCADOR DE CABECERAS MEJORADO
+
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-    
+
     const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
     const validIndices = [];
     const cleanHeaders = [];
+
     rawHeaders.forEach((h, index) => {
       if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
     });
@@ -226,15 +223,16 @@ function apiFetchStaffTrackerData(personName) {
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-    
+
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-      
+
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
+
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -251,6 +249,7 @@ function apiFetchStaffTrackerData(personName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
+
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
         rowObj['_rowIndex'] = headerRowIndex + i + 2;
@@ -263,49 +262,60 @@ function apiFetchStaffTrackerData(personName) {
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
       return dB - dA;
     };
+
     return { success: true, data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), headers: cleanHeaders };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
 /**
  * ======================================================================
- * OPTIMIZACIÓN SCRIPTMASTER: UPSERT (ACTUALIZAR O INSERTAR)
- * Corregido para que guarde tareas nuevas en el Tracker del Staff
+ * OPTIMIZACIÓN SCRIPTMASTER: UPSERT V3 (TOP INSERT)
+ * Inserta tareas nuevas INMEDIATAMENTE DESPUÉS DE LOS ENCABEZADOS.
  * ======================================================================
  */
 function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
+  
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
+  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
+
   try {
     const sheet = findSheetSmart(sheetName);
     if (!sheet) return { success: false, message: "Hoja no encontrada: " + sheetName };
+
     const dataRange = sheet.getDataRange();
     let values = dataRange.getValues();
     if (values.length === 0) return { success: false, message: "Hoja vacía" };
 
-    const headerRowIndex = findHeaderRow(values);
+    // 1. Encontrar encabezados
+    const headerRowIndex = findHeaderRow(values); // Índice base 0 del array
     if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
 
     const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-    
-    // MAPEO ROBUSTO DE ALIAS
+
+    // 2. Mapeo de Alias (ScriptMaster)
     const getColIdx = (key) => {
-      const k = key.toUpperCase();
+      const k = key.toUpperCase().trim();
       if (colMap[k] !== undefined) return colMap[k];
+      
       const aliases = {
-        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO'],
-        'CONCEPTO': ['CONCEPTO', 'DESCRIPCION', 'DESCRIPCIÓN DE LA ACTIVIDAD'],
+        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA'],
+        'CONCEPTO': ['CONCEPTO', 'DESCRIPCION', 'DESCRIPCIÓN DE LA ACTIVIDAD', 'DESCRIPCIÓN'],
         'RESPONSABLE': ['RESPONSABLE', 'INVOLUCRADOS'],
-        'RELOJ': ['RELOJ', 'HORAS', 'DIAS'],
+        'RELOJ': ['RELOJ', 'HORAS', 'DIAS', 'DÍAS'],
         'ESTATUS': ['ESTATUS', 'STATUS'],
         'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'],
         'AVANCE': ['AVANCE', 'AVANCE %', '% AVANCE'],
-        'ALTA': ['ALTA', 'AREA'], 
-        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA']
+        'ALTA': ['ALTA', 'AREA', 'DEPARTAMENTO', 'ESPECIALIDAD'], 
+        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA'],
+        'PRIORIDAD': ['PRIORIDAD', 'PRIORIDADES'],
+        'RIESGOS': ['RIESGO', 'RIESGOS'],
+        'ARCHIVO': ['ARCHIVO', 'ARCHIVOS', 'CLIP', 'LINK'],
+        'CLASIFICACION': ['CLASIFICACION', 'CLASI']
       };
+
       for (let main in aliases) {
         if (aliases[main].includes(k)) {
              for(let alias of aliases[main]) if(colMap[alias] !== undefined) return colMap[alias];
@@ -319,25 +329,27 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     let singleRowIndex = -1;
     let modified = false;
 
+    // 3. Procesar Tareas
     tasksArray.forEach(task => {
       let rowIndex = -1;
       
-      // 1. Intentar buscar fila existente
+      // A. Intentar buscar fila existente para ACTUALIZAR
       if (task._rowIndex) {
         rowIndex = parseInt(task._rowIndex) - 1; 
       } else {
         const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
-        if (tFolio) {
+        if (tFolio && folioIdx > -1) {
+          // Buscamos en toda la hoja
           for (let i = headerRowIndex + 1; i < values.length; i++) {
              const row = values[i];
-             if (folioIdx > -1 && String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
+             if (String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
           }
         }
       }
 
-      // 2. Si existe -> ACTUALIZAR
+      // B. Si existe -> ACTUALIZAR EN MEMORIA (No cambia de posición)
       if (rowIndex > -1 && rowIndex < values.length) {
-        Object.keys(task).forEach(key => {
+         Object.keys(task).forEach(key => {
           if (key.startsWith('_')) return;
           const cIdx = getColIdx(key);
           if (cIdx > -1) values[rowIndex][cIdx] = task[key];
@@ -345,7 +357,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         singleRowIndex = rowIndex;
         modified = true;
       } 
-      // 3. Si NO existe -> PREPARAR PARA INSERTAR (UPSERT)
+      // C. Si NO existe -> PREPARAR PARA INSERTAR
       else {
           const newRow = new Array(headers.length).fill("");
           Object.keys(task).forEach(key => {
@@ -353,40 +365,45 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
               const cIdx = getColIdx(key);
               if (cIdx > -1) newRow[cIdx] = task[key];
           });
-          // Asegurar que tenga el ID si es nuevo
+          
           if (folioIdx > -1 && !newRow[folioIdx] && (task['FOLIO'] || task['ID'])) {
               newRow[folioIdx] = task['FOLIO'] || task['ID'];
           }
+          const statusIdx = getColIdx('ESTATUS');
+          if(statusIdx > -1 && !newRow[statusIdx]) newRow[statusIdx] = 'ASIGNADO';
+
           rowsToAppend.push(newRow);
       }
     });
 
-    // --- ESCRITURA ---
-    // A. Actualizar existentes
+    // 4. ESCRITURA (Commit)
+
+    // A. Actualizar filas existentes (en su lugar original)
     if (modified) {
-       if (tasksArray.length === 1 && singleRowIndex > -1 && rowsToAppend.length === 0) {
+       if (tasksArray.length === 1 && singleRowIndex > -1) {
           sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
        } else {
           sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
        }
     }
 
-    // B. Insertar nuevas (APPEND) - ESTO FALTABA
+    // B. INSERTAR NUEVAS -> ARRIBA (Debajo de encabezados) [CAMBIO CLAVE]
     if (rowsToAppend.length > 0) {
-        // Encontrar donde empieza la sección de "TAREAS REALIZADAS" para insertar antes, o al final si no existe
-        let insertIndex = sheet.getLastRow() + 1;
+        // headerRowIndex es base 0.
+        // Si header está en fila 1 (index 0), queremos insertar en fila 2.
+        // Formula: headerRowIndex + 2
+        const insertPos = headerRowIndex + 2;
         
-        // Opcional: Buscar si hay una fila divisora de historial y escribir antes
-        // Por simplicidad y robustez, escribimos al final de la tabla de datos actual, antes de filas vacías masivas
-        // Pero dado el formato del usuario, un appendRow simple suele ser lo más seguro.
-        // Sin embargo, para respetar Batch, usamos getRange.
+        // 1. Abrir espacio desplazando todo hacia abajo
+        sheet.insertRowsBefore(insertPos, rowsToAppend.length);
         
-        const startRow = sheet.getLastRow() + 1;
-        sheet.getRange(startRow, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
+        // 2. Escribir los datos en el espacio nuevo
+        sheet.getRange(insertPos, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
     
-    SpreadsheetApp.flush(); // Forzar guardado inmediato
+    SpreadsheetApp.flush(); 
     return { success: true };
+
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
@@ -633,8 +650,7 @@ function apiFetchWeeklyPlanData() {
       rowObj["SEMANA"] = semanaNum;
       
       return rowObj;
-    }).filter(r => r["CONCEPTO"] || r["ID"] || r["FOLIO"]); 
-
+    }).filter(r => r["CONCEPTO"] || r["ID"] || r["FOLIO"]);
     return { success: true, headers: displayHeaders, data: result.reverse() }; 
   } catch (e) {
     console.error(e);
@@ -656,8 +672,8 @@ const d = s.getDataRange().getValues();
 return {success:true, headers:d[0], data:d.slice(1).map(r=>{let o={};d[0].forEach((h,i)=>o[h]=r[i]);return o;})};
 } catch(e){return {success:false}} }
 function apiSaveSaleData(j) { const s = findSheetSmart(APP_CONFIG.salesSheetName);
-s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||"")); return {success:true}; }
-
+s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||"")); return {success:true};
+}
 
 /**
  * ======================================================================
@@ -665,7 +681,7 @@ s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||""))
  * ======================================================================
  */
 
-// 1. Guardar Nuevo Sitio (Padre) - CON FLUSH Y UPSERT VALIDATION
+// 1. Guardar Nuevo Sitio (Padre)
 function apiSaveSite(siteData) {
   const lock = LockService.getScriptLock();
   if (lock.tryLock(5000)) {
@@ -679,14 +695,13 @@ function apiSaveSite(siteData) {
       const data = sheet.getDataRange().getValues();
       const cleanName = siteData.name.toUpperCase().trim();
       const nameColIdx = data.length > 0 ? data[0].indexOf("NOMBRE") : 1;
-      
       for(let i=1; i<data.length; i++) {
          if (data[i][nameColIdx] && String(data[i][nameColIdx]).toUpperCase().trim() === cleanName) {
              return { success: false, message: "Ya existe un sitio con ese nombre." };
          }
       }
 
-      const id = "SITE-" + new Date().getTime(); // ID único simple
+      const id = "SITE-" + new Date().getTime();
       sheet.appendRow([
         id,
         cleanName,
@@ -696,8 +711,7 @@ function apiSaveSite(siteData) {
         new Date(),
         siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO"
       ]);
-      
-      SpreadsheetApp.flush(); // FORZAR ESCRITURA
+      SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Sitio creado correctamente." };
     } catch (e) {
       return { success: false, message: e.toString() };
@@ -708,7 +722,7 @@ function apiSaveSite(siteData) {
   return { success: false, message: "El sistema está ocupado." };
 }
 
-// 2. Guardar Nuevo Subproyecto (Hijo) - CON FLUSH Y UPSERT VALIDATION
+// 2. Guardar Nuevo Subproyecto (Hijo)
 function apiSaveSubProject(subProjectData) {
   const lock = LockService.getScriptLock();
   if (lock.tryLock(5000)) {
@@ -747,8 +761,7 @@ function apiSaveSubProject(subProjectData) {
         new Date(),
         subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO"
       ]);
-      
-      SpreadsheetApp.flush(); // FORZAR ESCRITURA
+      SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
     } catch (e) {
       return { success: false, message: e.toString() };
@@ -759,15 +772,14 @@ function apiSaveSubProject(subProjectData) {
   return { success: false, message: "El sistema está ocupado." };
 }
 
-// 3. Obtener Árbol Completo - SCRIPTMASTER FIX: MAPEO FLEXIBLE
+// 3. Obtener Árbol Completo
 function apiFetchCascadeTree() {
   try {
     const sites = [];
     const sheetSites = findSheetSmart("DB_SITIOS");
     if (sheetSites) {
       const values = sheetSites.getDataRange().getValues();
-      const headerRowIdx = findHeaderRow(values); 
-      
+      const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
         const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
         const colMap = {
@@ -778,7 +790,6 @@ function apiFetchCascadeTree() {
            status: headers.findIndex(h => h.includes("ESTATUS")),
            date: headers.findIndex(h => h.includes("FECHA"))
         };
-
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
@@ -805,7 +816,6 @@ function apiFetchCascadeTree() {
     if (sheetProjs) {
       const values = sheetProjs.getDataRange().getValues();
       const headerRowIdx = findHeaderRow(values);
-      
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
         const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
         const colMap = {
@@ -814,7 +824,6 @@ function apiFetchCascadeTree() {
            type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")),
            status: headers.findIndex(h => h.includes("ESTATUS"))
         };
-
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.parentId > -1 && colMap.name > -1 && row[colMap.parentId]) {
