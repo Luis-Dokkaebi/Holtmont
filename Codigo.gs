@@ -1,7 +1,7 @@
 /**
  * ======================================================================
- * HOLTMONT WORKSPACE V129 - SCRIPTMASTER EDITION
- * Optimizado: Batch Write, Smart Headers, KPI Dashboard, DB Relacional, UPSERT V2
+ * HOLTMONT WORKSPACE V143 - SCRIPTMASTER EDITION
+ * Optimizado: Fix Distribución Antonia (Locking), Logs Detallados
  * ======================================================================
  */
 
@@ -22,7 +22,9 @@ const USER_DB = {
   "JESUS_GARZA":    { pass: "ppc2025",   role: "PPC_ADMIN", label: "PPC Manager" },
   "ANTONIA_VENTAS": { pass: "tonita2025", role: "TONITA", label: "Ventas" },
   "JAIME_OLIVO":    { pass: "admin2025", role: "ADMIN_CONTROL", label: "Jaime Olivo" },
-  "ANGEL_SALINAS":  { pass: "angel2025", role: "ANGEL_USER", label: "Angel Salinas" }
+  "ANGEL_SALINAS":  { pass: "angel2025", role: "ANGEL_USER", label: "Angel Salinas" },
+  "TERESA_GARZA":   { pass: "tere2025",  role: "TERESA_USER", label: "Teresa Garza" },
+  "EDUARDO_TERAN":  { pass: "lalo2025",  role: "EDUARDO_USER", label: "Eduardo Teran" }
 };
 
 /* SERVICIO HTML */
@@ -163,15 +165,66 @@ function getSystemConfig(role) {
       "MAQUINARIA": { label: "Maquinaria", icon: "fa-truck", color: "#20c997" }
   };
 
-  if (role === 'TONITA') return { departments: { "VENTAS": allDepts["VENTAS"] }, allDepartments: allDepts, staff: [ { name: "ANTONIA_VENTAS", dept: "VENTAS" } ], directory: fullDirectory, specialModules: [] };
-  
+  // --- ROLES DE USUARIO ---
+
+  if (role === 'TONITA') return { 
+      departments: { "VENTAS": allDepts["VENTAS"] }, 
+      allDepartments: allDepts, 
+      staff: [ { name: "ANTONIA_VENTAS", dept: "VENTAS" } ], 
+      directory: fullDirectory, 
+      specialModules: [],
+      accessProjects: false 
+  };
+
+  if (role === 'ANGEL_USER') {
+    return {
+      departments: { "DISEÑO": allDepts["DISEÑO"], "VENTAS": allDepts["VENTAS"] },
+      allDepartments: allDepts, 
+      staff: [ { name: "ANGEL SALINAS", dept: "DISEÑO" } ], 
+      directory: fullDirectory,
+      specialModules: [{ id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#0d6efd", type: "mirror_staff", target: "ANGEL SALINAS" }],
+      accessProjects: false 
+    };
+  }
+
+  if (role === 'TERESA_USER') {
+    return {
+      departments: { "CONSTRUCCION": allDepts["CONSTRUCCION"] },
+      allDepartments: allDepts, 
+      staff: [ { name: "TERESA GARZA", dept: "CONSTRUCCION" } ], 
+      directory: fullDirectory,
+      specialModules: [{ id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#e83e8c", type: "mirror_staff", target: "TERESA GARZA" }],
+      accessProjects: false 
+    };
+  }
+
+  if (role === 'EDUARDO_USER') {
+    return {
+      departments: { "CONSTRUCCION": allDepts["CONSTRUCCION"] },
+      allDepartments: allDepts, 
+      staff: [ { name: "EDUARDO TERAN", dept: "CONSTRUCCION" } ], 
+      directory: fullDirectory,
+      specialModules: [{ id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#fd7e14", type: "mirror_staff", target: "EDUARDO TERAN" }],
+      accessProjects: false 
+    };
+  }
+
+  // --- ADMINISTRADORES ---
+
   const ppcModules = [
       { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" },
       { id: "WEEKLY_PLAN", label: "Planeación Semanal", icon: "fa-calendar-alt", color: "#6f42c1", type: "weekly_plan_view" }
   ];
 
-  if (role === 'PPC_ADMIN') return { departments: {}, allDepartments: allDepts, staff: [], directory: fullDirectory, specialModules: ppcModules };
-  
+  if (role === 'PPC_ADMIN') return { 
+      departments: {}, 
+      allDepartments: allDepts, 
+      staff: [], 
+      directory: fullDirectory, 
+      specialModules: ppcModules,
+      accessProjects: true 
+  };
+
   if (role === 'ADMIN_CONTROL') {
     return {
       departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
@@ -180,22 +233,16 @@ function getSystemConfig(role) {
         ...ppcModules,
         { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" },
         { id: "ADMIN_TRACKER", label: "Control", icon: "fa-clipboard-list", color: "#6f42c1", type: "mirror_staff", target: "ADMINISTRADOR" }
-      ]
-    };
-  }
-
-  if (role === 'ANGEL_USER') {
-    return {
-      departments: { "DISEÑO": allDepts["DISEÑO"], "VENTAS": allDepts["VENTAS"] },
-      allDepartments: allDepts, staff: [ { name: "ANGEL SALINAS", dept: "DISEÑO" } ], directory: fullDirectory,
-      specialModules: [{ id: "MY_TRACKER", label: "Mi Tabla", icon: "fa-table", color: "#0d6efd", type: "mirror_staff", target: "ANGEL SALINAS" }]
+      ],
+      accessProjects: true 
     };
   }
 
   // ADMIN
   return {
     departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
-    specialModules: [ ...ppcModules, { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" } ]
+    specialModules: [ ...ppcModules, { id: "MIRROR_TONITA", label: "Monitor Toñita", icon: "fa-eye", color: "#0dcaf0", type: "mirror_staff", target: "ANTONIA_VENTAS" } ],
+    accessProjects: true 
   };
 }
 
@@ -204,35 +251,32 @@ function apiFetchStaffTrackerData(personName) {
   try {
     const sheet = findSheetSmart(personName);
     if (!sheet) return { success: true, data: [], history: [], headers: [], message: `Falta hoja: ${personName}` };
-    
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
-
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-
+    
     const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
     const validIndices = [];
     const cleanHeaders = [];
-
     rawHeaders.forEach((h, index) => {
       if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
     });
-
+    
     const dataRows = values.slice(headerRowIndex + 1);
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-
+    
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-
+      
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
-
+      
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -249,7 +293,7 @@ function apiFetchStaffTrackerData(personName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
-
+      
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
         rowObj['_rowIndex'] = headerRowIndex + i + 2;
@@ -262,40 +306,41 @@ function apiFetchStaffTrackerData(personName) {
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
       return dB - dA;
     };
-
+    
     return { success: true, data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), headers: cleanHeaders };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
 /**
  * ======================================================================
- * OPTIMIZACIÓN SCRIPTMASTER: UPSERT V3 (TOP INSERT)
- * Inserta tareas nuevas INMEDIATAMENTE DESPUÉS DE LOS ENCABEZADOS.
+ * OPTIMIZACIÓN SCRIPTMASTER: UPSERT V3
  * ======================================================================
  */
 function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo." };
-
+  // Intentar obtener bloqueo, si falla, reportar pero no bloquear el resto del script
+  if (!lock.tryLock(10000)) {
+      console.warn(`No se pudo obtener bloqueo para hoja: ${sheetName}`);
+      return { success: false, message: "Hoja ocupada, intenta de nuevo." };
+  }
+  
   try {
     const sheet = findSheetSmart(sheetName);
     if (!sheet) return { success: false, message: "Hoja no encontrada: " + sheetName };
-
     const dataRange = sheet.getDataRange();
     let values = dataRange.getValues();
     if (values.length === 0) return { success: false, message: "Hoja vacía" };
-
+    
     // 1. Encontrar encabezados
-    const headerRowIndex = findHeaderRow(values); // Índice base 0 del array
+    const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
-
+    
     const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-
-    // 2. Mapeo de Alias (ScriptMaster)
+    
+    // 2. Mapeo de Alias
     const getColIdx = (key) => {
       const k = key.toUpperCase().trim();
       if (colMap[k] !== undefined) return colMap[k];
@@ -315,7 +360,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         'ARCHIVO': ['ARCHIVO', 'ARCHIVOS', 'CLIP', 'LINK'],
         'CLASIFICACION': ['CLASIFICACION', 'CLASI']
       };
-
+      
       for (let main in aliases) {
         if (aliases[main].includes(k)) {
              for(let alias of aliases[main]) if(colMap[alias] !== undefined) return colMap[alias];
@@ -323,7 +368,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
       return -1;
     };
-
+    
     const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
     let rowsToAppend = [];
     let singleRowIndex = -1;
@@ -365,7 +410,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
               const cIdx = getColIdx(key);
               if (cIdx > -1) newRow[cIdx] = task[key];
           });
-          
           if (folioIdx > -1 && !newRow[folioIdx] && (task['FOLIO'] || task['ID'])) {
               newRow[folioIdx] = task['FOLIO'] || task['ID'];
           }
@@ -377,8 +421,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     });
 
     // 4. ESCRITURA (Commit)
-
-    // A. Actualizar filas existentes (en su lugar original)
+    // A. Actualizar filas existentes
     if (modified) {
        if (tasksArray.length === 1 && singleRowIndex > -1) {
           sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
@@ -387,23 +430,15 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
        }
     }
 
-    // B. INSERTAR NUEVAS -> ARRIBA (Debajo de encabezados) [CAMBIO CLAVE]
+    // B. INSERTAR NUEVAS -> ARRIBA
     if (rowsToAppend.length > 0) {
-        // headerRowIndex es base 0.
-        // Si header está en fila 1 (index 0), queremos insertar en fila 2.
-        // Formula: headerRowIndex + 2
         const insertPos = headerRowIndex + 2;
-        
-        // 1. Abrir espacio desplazando todo hacia abajo
         sheet.insertRowsBefore(insertPos, rowsToAppend.length);
-        
-        // 2. Escribir los datos en el espacio nuevo
         sheet.getRange(insertPos, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
     
     SpreadsheetApp.flush(); 
     return { success: true };
-
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
@@ -418,14 +453,28 @@ function apiUpdatePPCV3(taskData) {
 
 function internalUpdateTask(personName, taskData) {
     try {
+        // 1. Guardar en la hoja original (Antonia)
         const res = internalBatchUpdateTasks(personName, [taskData]);
+        
+        // 2. Lógica Especial para ANTONIA (Distribución a Vendedor y Admin)
         if (personName === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
+             // Eliminar el índice para forzar inserción/búsqueda en la otra hoja
              delete distData._rowIndex; 
+             
+             // Buscar Vendedor
              const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase() === "VENDEDOR");
+             
              if (vendedorKey && taskData[vendedorKey]) {
-                 try { internalBatchUpdateTasks(taskData[vendedorKey].trim(), [distData]); } catch(e){}
+                 const vendedorName = String(taskData[vendedorKey]).trim();
+                 try { 
+                    const vRes = internalBatchUpdateTasks(vendedorName, [distData]); 
+                    if(!vRes.success) logSystemEvent("ANTONIA", "DIST_FAIL", "Fallo copia a " + vendedorName);
+                 } catch(e){
+                    logSystemEvent("ANTONIA", "DIST_ERROR", e.toString());
+                 }
              }
+             // Copiar a Admin
              try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
@@ -433,12 +482,8 @@ function internalUpdateTask(personName, taskData) {
 }
 
 function apiUpdateTask(personName, taskData) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) { 
-      try { return internalUpdateTask(personName, taskData); } 
-      finally { lock.releaseLock(); } 
-  }
-  return { success: false, message: "Ocupado." };
+  // ELIMINADO BLOQUEO AQUI PARA EVITAR DEADLOCK CON internalBatchUpdateTasks
+  return internalUpdateTask(personName, taskData);
 }
 
 function apiFetchDrafts() {
@@ -528,18 +573,26 @@ function apiSavePPCData(payload) {
                  'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
                  'ALTA': item.especialidad, 'INVOLUCRADOS': item.responsable, 'FECHA': fechaStr,
                  'RELOJ': item.horas, 'ESTATUS': "ASIGNADO", 'PRIORIDAD': item.prioridad || item.prioridades, 
-                 'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%"
+                 'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%",
+                 'COMENTARIOS': item.comentarios, // IMPORTANTE: Aquí viaja la etiqueta [PROY: NAME]
+                 'ARCHIVO': item.archivoUrl
           };
+          
+          // 1. Guardar en Tracker General (ADMINISTRADOR)
           addTaskToSheet("ADMINISTRADOR", taskData);
+          
+          // 2. Distribuir a Hojas de STAFF (STAFF_TRACKER)
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
           responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
 
+      // Guardar en PPCV3
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
 
+      // Ejecutar escrituras en lote (Admin y Staffs)
       for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
           internalBatchUpdateTasks(targetSheet, tasks);
       }
@@ -848,4 +901,74 @@ function apiFetchCascadeTree() {
     console.error(e);
     return { success: false, message: "Error leyendo DB: " + e.toString() };
   }
+}
+
+/**
+ * ======================================================================
+ * MODULO PPC PROYECTO (Backend)
+ * Gestión de tareas etiquetadas por proyecto en hoja MASTER (ADMINISTRADOR)
+ * ======================================================================
+ */
+function apiFetchProjectTasks(projectName) {
+  try {
+    const sheet = findSheetSmart("ADMINISTRADOR");
+    if (!sheet) return { success: false, message: "No se encuentra la hoja ADMINISTRADOR" };
+
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return { success: true, data: [], headers: [] };
+
+    const headerRowIdx = findHeaderRow(values);
+    if (headerRowIdx === -1) return { success: false, message: "Sin cabeceras válidas" };
+
+    const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
+    const projectTag = `[PROY: ${String(projectName).toUpperCase().trim()}]`;
+    
+    // Indices clave
+    let colIdx = {
+       concepto: headers.indexOf("CONCEPTO"),
+       comentarios: headers.indexOf("COMENTARIOS")
+    };
+    // Fallback headers
+    if (colIdx.concepto === -1) colIdx.concepto = headers.findIndex(h => h.includes("CONCEPTO") || h.includes("DESCRIPCI"));
+    if (colIdx.comentarios === -1) colIdx.comentarios = headers.findIndex(h => h.includes("COMENTARIOS"));
+
+    const dataRows = values.slice(headerRowIdx + 1);
+    const filteredTasks = [];
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const comText = (colIdx.comentarios > -1 && row[colIdx.comentarios]) ? String(row[colIdx.comentarios]).toUpperCase() : "";
+        const descText = (colIdx.concepto > -1 && row[colIdx.concepto]) ? String(row[colIdx.concepto]).toUpperCase() : "";
+        
+        if (comText.includes(projectTag) || descText.includes(projectTag)) {
+            let rowObj = { _rowIndex: headerRowIdx + i + 2 };
+            headers.forEach((h, k) => {
+                let val = row[k];
+                if (val instanceof Date) {
+                    val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+                }
+                rowObj[h] = val;
+            });
+            filteredTasks.push(rowObj);
+        }
+    }
+    return { success: true, data: filteredTasks.reverse(), headers: headers };
+
+  } catch (e) {
+    console.error(e);
+    return { success: false, message: e.toString() };
+  }
+}
+
+function apiSaveProjectTask(taskData, projectName) {
+    try {
+        const tag = `[PROY: ${String(projectName).toUpperCase().trim()}]`;
+        let coms = taskData['COMENTARIOS'] || "";
+        if (!String(coms).toUpperCase().includes(tag)) {
+            taskData['COMENTARIOS'] = (coms + " " + tag).trim();
+        }
+        return internalBatchUpdateTasks("ADMINISTRADOR", [taskData]);
+    } catch (e) {
+        return { success: false, message: e.toString() };
+    }
 }
