@@ -1,7 +1,7 @@
 /**
  * ======================================================================
- * HOLTMONT WORKSPACE V143 - SCRIPTMASTER EDITION
- * Optimizado: Fix Distribución Antonia (Locking), Logs Detallados
+ * HOLTMONT WORKSPACE V146 - SCRIPTMASTER EDITION
+ * Fix: Error Dimensiones en Auto-Archivo (100%), Distribución Antonia Intacta
  * ======================================================================
  */
 
@@ -47,25 +47,20 @@ function findSheetSmart(name) {
   return null;
 }
 
-// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster) - V2 (Prioriza DB)
+// DETECTOR DE CABECERAS INTELIGENTE (ScriptMaster) - V2
 function findHeaderRow(values) {
   for (let i = 0; i < Math.min(100, values.length); i++) {
     const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
-    // 5. DB Generica (Sitios/Proyectos) - PRIORIDAD ALTA
     if (rowStr.includes("ID_SITIO") || rowStr.includes("ID_PROYECTO")) return i;
-    // 1. Tracker Estandar (Administrativos/Staff)
     if (rowStr.includes("FOLIO") && rowStr.includes("CONCEPTO") && 
        (rowStr.includes("ALTA") || rowStr.includes("AVANCE") || rowStr.includes("STATUS") || rowStr.includes("FECHA"))) {
       return i;
     }
-    // 2. Staff Antiguo (Fallback)
     if (rowStr.includes("ID") && rowStr.includes("RESPONSABLE")) return i;
-    // 3. CASO PPCV3 (Flexible)
     if ((rowStr.includes("FOLIO") || rowStr.includes("ID")) && 
         (rowStr.includes("DESCRIPCI") || rowStr.includes("RESPONSABLE") || rowStr.includes("CONCEPTO"))) {
       return i;
     }
-    // 4. Ventas
     if (rowStr.includes("CLIENTE") && (rowStr.includes("VENDEDOR") || rowStr.includes("AREA"))) return i;
   }
   return -1;
@@ -166,7 +161,6 @@ function getSystemConfig(role) {
   };
 
   // --- ROLES DE USUARIO ---
-
   if (role === 'TONITA') return { 
       departments: { "VENTAS": allDepts["VENTAS"] }, 
       allDepartments: allDepts, 
@@ -210,7 +204,6 @@ function getSystemConfig(role) {
   }
 
   // --- ADMINISTRADORES ---
-
   const ppcModules = [
       { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" },
       { id: "WEEKLY_PLAN", label: "Planeación Semanal", icon: "fa-calendar-alt", color: "#6f42c1", type: "weekly_plan_view" }
@@ -262,12 +255,12 @@ function apiFetchStaffTrackerData(personName) {
     rawHeaders.forEach((h, index) => {
       if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
     });
-    
+
     const dataRows = values.slice(headerRowIndex + 1);
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-    
+
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
@@ -276,7 +269,6 @@ function apiFetchStaffTrackerData(personName) {
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
-      
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -293,7 +285,7 @@ function apiFetchStaffTrackerData(personName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
-      
+
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
         rowObj['_rowIndex'] = headerRowIndex + i + 2;
@@ -306,22 +298,19 @@ function apiFetchStaffTrackerData(personName) {
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
       return dB - dA;
     };
-    
     return { success: true, data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), headers: cleanHeaders };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
 /**
  * ======================================================================
- * OPTIMIZACIÓN SCRIPTMASTER: UPSERT V3
+ * OPTIMIZACIÓN SCRIPTMASTER: UPSERT V3 + AUTO ARCHIVE 100% (FIX DIMENSIONES)
  * ======================================================================
  */
 function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
   const lock = LockService.getScriptLock();
-  // Intentar obtener bloqueo, si falla, reportar pero no bloquear el resto del script
   if (!lock.tryLock(10000)) {
-      console.warn(`No se pudo obtener bloqueo para hoja: ${sheetName}`);
       return { success: false, message: "Hoja ocupada, intenta de nuevo." };
   }
   
@@ -332,21 +321,21 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     let values = dataRange.getValues();
     if (values.length === 0) return { success: false, message: "Hoja vacía" };
     
-    // 1. Encontrar encabezados
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
     
     const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
+    // FIX: Usamos el ancho REAL de la hoja (values[0]) no solo el de los headers encontrados
+    const totalColumns = values[0].length; 
+    
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-    
-    // 2. Mapeo de Alias
+
     const getColIdx = (key) => {
       const k = key.toUpperCase().trim();
       if (colMap[k] !== undefined) return colMap[k];
-      
       const aliases = {
-        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA'],
+        'FECHA': ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO', 'FECHA VISITA'],
         'CONCEPTO': ['CONCEPTO', 'DESCRIPCION', 'DESCRIPCIÓN DE LA ACTIVIDAD', 'DESCRIPCIÓN'],
         'RESPONSABLE': ['RESPONSABLE', 'INVOLUCRADOS'],
         'RELOJ': ['RELOJ', 'HORAS', 'DIAS', 'DÍAS'],
@@ -354,13 +343,12 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         'CUMPLIMIENTO': ['CUMPLIMIENTO', 'CUMPL.', 'CUMP'],
         'AVANCE': ['AVANCE', 'AVANCE %', '% AVANCE'],
         'ALTA': ['ALTA', 'AREA', 'DEPARTAMENTO', 'ESPECIALIDAD'], 
-        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA'],
+        'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA', 'FECHA DE ENTREGA'],
         'PRIORIDAD': ['PRIORIDAD', 'PRIORIDADES'],
         'RIESGOS': ['RIESGO', 'RIESGOS'],
         'ARCHIVO': ['ARCHIVO', 'ARCHIVOS', 'CLIP', 'LINK'],
         'CLASIFICACION': ['CLASIFICACION', 'CLASI']
       };
-      
       for (let main in aliases) {
         if (aliases[main].includes(k)) {
              for(let alias of aliases[main]) if(colMap[alias] !== undefined) return colMap[alias];
@@ -368,7 +356,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
       return -1;
     };
-    
+
     const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
     let rowsToAppend = [];
     let singleRowIndex = -1;
@@ -378,13 +366,12 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     tasksArray.forEach(task => {
       let rowIndex = -1;
       
-      // A. Intentar buscar fila existente para ACTUALIZAR
+      // A. Intentar buscar fila existente
       if (task._rowIndex) {
         rowIndex = parseInt(task._rowIndex) - 1; 
       } else {
         const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
         if (tFolio && folioIdx > -1) {
-          // Buscamos en toda la hoja
           for (let i = headerRowIndex + 1; i < values.length; i++) {
              const row = values[i];
              if (String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
@@ -392,7 +379,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         }
       }
 
-      // B. Si existe -> ACTUALIZAR EN MEMORIA (No cambia de posición)
+      // B. Si existe -> ACTUALIZAR
       if (rowIndex > -1 && rowIndex < values.length) {
          Object.keys(task).forEach(key => {
           if (key.startsWith('_')) return;
@@ -402,9 +389,10 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         singleRowIndex = rowIndex;
         modified = true;
       } 
-      // C. Si NO existe -> PREPARAR PARA INSERTAR
+      // C. Si NO existe -> INSERTAR
       else {
-          const newRow = new Array(headers.length).fill("");
+          // FIX: Usamos totalColumns para evitar error de dimensiones
+          const newRow = new Array(totalColumns).fill(""); 
           Object.keys(task).forEach(key => {
               if (key.startsWith('_')) return;
               const cIdx = getColIdx(key);
@@ -420,17 +408,89 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
     });
 
-    // 4. ESCRITURA (Commit)
-    // A. Actualizar filas existentes
+    // 4. LÓGICA DE AUTO-ARCHIVADO (SI AVANCE == 100%)
+    let rowsMoved = false;
+    const avanceIdx = getColIdx('AVANCE');
+    
+    if (avanceIdx > -1) {
+        // A. Encontrar separador "TAREAS REALIZADAS"
+        let separatorIndex = -1;
+        for(let i=0; i<values.length; i++) {
+            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || 
+               String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+                separatorIndex = i;
+                break;
+            }
+        }
+
+        // B. Definir Rangos
+        let headerAndTop = values.slice(0, headerRowIndex + 1);
+        let activeRows = [];
+        let separatorRow = [];
+        let historyRows = [];
+        
+        if (separatorIndex === -1) {
+            activeRows = values.slice(headerRowIndex + 1);
+        } else {
+            activeRows = values.slice(headerRowIndex + 1, separatorIndex);
+            separatorRow = [values[separatorIndex]];
+            historyRows = values.slice(separatorIndex + 1);
+        }
+
+        // C. Filtrar 100% de la sección Activa
+        const newActiveRows = [];
+        const movedRows = [];
+        
+        activeRows.forEach(row => {
+            const val = String(row[avanceIdx] || "").trim();
+            // Comprobación robusta de 100% (cubre 100, 100%, 1, 1.0)
+            const isComplete = val === "100" || val === "100%" || val === "1.0" || val === "1";
+            
+            if (isComplete) {
+                movedRows.push(row);
+                rowsMoved = true;
+            } else {
+                newActiveRows.push(row);
+            }
+        });
+
+        // D. Reconstruir Array si hubo movimientos
+        if (rowsMoved || (rowsToAppend.length > 0 && separatorIndex === -1)) {
+            // Si no existe separador y vamos a mover o insertar, crearlo
+            if (separatorRow.length === 0) {
+                // FIX: Usar totalColumns
+                const sep = new Array(totalColumns).fill(""); 
+                sep[0] = ""; sep[1] = ""; sep[2] = "TAREAS REALIZADAS";
+                separatorRow = [sep];
+            }
+            
+            // Reconstrucción completa
+            values = [
+                ...headerAndTop,
+                ...rowsToAppend, 
+                ...newActiveRows,
+                ...separatorRow,
+                ...movedRows,    
+                ...historyRows
+            ];
+            
+            rowsToAppend = []; 
+            modified = true;
+            singleRowIndex = -1; // Forzar escritura completa
+        }
+    }
+
+    // 5. ESCRITURA
     if (modified) {
-       if (tasksArray.length === 1 && singleRowIndex > -1) {
+       if (tasksArray.length === 1 && singleRowIndex > -1 && !rowsMoved) {
           sheet.getRange(singleRowIndex + 1, 1, 1, values[0].length).setValues([values[singleRowIndex]]);
        } else {
+          // Escritura masiva segura
+          if(values.length < dataRange.getNumRows()) sheet.clearContents();
           sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
        }
     }
 
-    // B. INSERTAR NUEVAS -> ARRIBA
     if (rowsToAppend.length > 0) {
         const insertPos = headerRowIndex + 2;
         sheet.insertRowsBefore(insertPos, rowsToAppend.length);
@@ -438,7 +498,8 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     }
     
     SpreadsheetApp.flush(); 
-    return { success: true };
+    return { success: true, moved: rowsMoved };
+
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
@@ -453,25 +514,30 @@ function apiUpdatePPCV3(taskData) {
 
 function internalUpdateTask(personName, taskData) {
     try {
-        // 1. Guardar en la hoja original (Antonia)
+        // 1. Guardar en la hoja original (Ej: ANTONIA_VENTAS o Staff)
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        
+
         // 2. Lógica Especial para ANTONIA (Distribución a Vendedor y Admin)
-        if (personName === "ANTONIA_VENTAS") {
-             const distData = JSON.parse(JSON.stringify(taskData));
-             // Eliminar el índice para forzar inserción/búsqueda en la otra hoja
-             delete distData._rowIndex; 
+        if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              
+             const distData = JSON.parse(JSON.stringify(taskData));
+             delete distData._rowIndex; 
+
              // Buscar Vendedor
-             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase() === "VENDEDOR");
+             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
              
              if (vendedorKey && taskData[vendedorKey]) {
                  const vendedorName = String(taskData[vendedorKey]).trim();
-                 try { 
-                    const vRes = internalBatchUpdateTasks(vendedorName, [distData]); 
-                    if(!vRes.success) logSystemEvent("ANTONIA", "DIST_FAIL", "Fallo copia a " + vendedorName);
-                 } catch(e){
-                    logSystemEvent("ANTONIA", "DIST_ERROR", e.toString());
+                 if (vendedorName.toUpperCase() !== "ANTONIA_VENTAS") {
+                     try { 
+                        const vRes = internalBatchUpdateTasks(vendedorName, [distData]);
+                        if(!vRes.success) {
+                           console.warn("Fallo dist a " + vendedorName + ": " + vRes.message);
+                           logSystemEvent("ANTONIA", "DIST_FAIL", "Fallo copia a " + vendedorName + ": " + vRes.message);
+                        }
+                     } catch(e){
+                        logSystemEvent("ANTONIA", "DIST_ERROR", e.toString());
+                     }
                  }
              }
              // Copiar a Admin
@@ -482,7 +548,6 @@ function internalUpdateTask(personName, taskData) {
 }
 
 function apiUpdateTask(personName, taskData) {
-  // ELIMINADO BLOQUEO AQUI PARA EVITAR DEADLOCK CON internalBatchUpdateTasks
   return internalUpdateTask(personName, taskData);
 }
 
@@ -560,7 +625,6 @@ function apiSavePPCData(payload) {
           if (!tasksBySheet[key]) tasksBySheet[key] = [];
           tasksBySheet[key].push(task);
       };
-
       items.forEach(item => {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           
@@ -570,29 +634,24 @@ function apiSavePPCData(payload) {
           ]);
 
           const taskData = {
-                 'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
+                'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
                  'ALTA': item.especialidad, 'INVOLUCRADOS': item.responsable, 'FECHA': fechaStr,
                  'RELOJ': item.horas, 'ESTATUS': "ASIGNADO", 'PRIORIDAD': item.prioridad || item.prioridades, 
                  'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%",
-                 'COMENTARIOS': item.comentarios, // IMPORTANTE: Aquí viaja la etiqueta [PROY: NAME]
+                 'COMENTARIOS': item.comentarios, 
                  'ARCHIVO': item.archivoUrl
           };
           
-          // 1. Guardar en Tracker General (ADMINISTRADOR)
           addTaskToSheet("ADMINISTRADOR", taskData);
-          
-          // 2. Distribuir a Hojas de STAFF (STAFF_TRACKER)
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
           responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
 
-      // Guardar en PPCV3
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
 
-      // Ejecutar escrituras en lote (Admin y Staffs)
       for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
           internalBatchUpdateTasks(targetSheet, tasks);
       }
@@ -728,12 +787,6 @@ function apiSaveSaleData(j) { const s = findSheetSmart(APP_CONFIG.salesSheetName
 s.appendRow(s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(h=>j[h]||"")); return {success:true};
 }
 
-/**
- * ======================================================================
- * GESTIÓN DE PROYECTOS EN CASCADA (DB_SITIOS y DB_PROYECTOS)
- * ======================================================================
- */
-
 // 1. Guardar Nuevo Sitio (Padre)
 function apiSaveSite(siteData) {
   const lock = LockService.getScriptLock();
@@ -797,7 +850,7 @@ function apiSaveSubProject(subProjectData) {
           nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO");
       }
 
-      for(let i=headerRow+1; i<data.length; i++) {
+      for(let i=1; i<data.length; i++) {
           if (data[i][idSitioIdx] == subProjectData.parentId && 
               String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio." };
@@ -903,12 +956,6 @@ function apiFetchCascadeTree() {
   }
 }
 
-/**
- * ======================================================================
- * MODULO PPC PROYECTO (Backend)
- * Gestión de tareas etiquetadas por proyecto en hoja MASTER (ADMINISTRADOR)
- * ======================================================================
- */
 function apiFetchProjectTasks(projectName) {
   try {
     const sheet = findSheetSmart("ADMINISTRADOR");
@@ -928,18 +975,15 @@ function apiFetchProjectTasks(projectName) {
        concepto: headers.indexOf("CONCEPTO"),
        comentarios: headers.indexOf("COMENTARIOS")
     };
-    // Fallback headers
     if (colIdx.concepto === -1) colIdx.concepto = headers.findIndex(h => h.includes("CONCEPTO") || h.includes("DESCRIPCI"));
     if (colIdx.comentarios === -1) colIdx.comentarios = headers.findIndex(h => h.includes("COMENTARIOS"));
 
     const dataRows = values.slice(headerRowIdx + 1);
     const filteredTasks = [];
-
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const comText = (colIdx.comentarios > -1 && row[colIdx.comentarios]) ? String(row[colIdx.comentarios]).toUpperCase() : "";
         const descText = (colIdx.concepto > -1 && row[colIdx.concepto]) ? String(row[colIdx.concepto]).toUpperCase() : "";
-        
         if (comText.includes(projectTag) || descText.includes(projectTag)) {
             let rowObj = { _rowIndex: headerRowIdx + i + 2 };
             headers.forEach((h, k) => {
@@ -953,7 +997,6 @@ function apiFetchProjectTasks(projectName) {
         }
     }
     return { success: true, data: filteredTasks.reverse(), headers: headers };
-
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
