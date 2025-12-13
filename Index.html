@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V142 - ScriptMaster Edition</title>
+  <title>Holtmont V145 - ScriptMaster Edition</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
@@ -13,13 +13,14 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
+    /* VARIABLES Y ESTILOS GLOBALES */
     :root { --sidebar-w: 260px; --sidebar-mini: 65px; --primary: #1c1c1c; --accent: #3699ff; --bg-body: #f3f6f9; }
     body { font-family: 'Roboto', sans-serif; background: var(--bg-body); margin: 0; overflow: hidden; font-size: 13px; }
     
     .content-wrapper { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); overflow: hidden; position: relative; transition: margin-left 0.3s; }
     .view-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 20px; width: 100%; box-sizing: border-box; }
 
-    /* TABLA EXCEL */
+    /* TABLA EXCEL AVANZADA */
     .excel-container { 
         flex: 1; overflow: auto; background: white; border: 1px solid #999; 
         box-shadow: 0 2px 5px rgba(0,0,0,0.05); width: 100%;
@@ -47,13 +48,13 @@
     .input-row { background-color: #f8f9fa; border-bottom: 2px solid #107c41; } 
     .row-num { background-color: #e6e6e6; text-align: center; color: #333; font-weight: bold; width: 40px; border-right: 3px solid #ccc !important; }
 
-    /* MINI DASHBOARD */
+    /* MINI DASHBOARD & KPI */
     .mini-table { width: auto !important; min-width: 0 !important; border: none; }
     .mini-table th { padding: 5px 6px; font-size: 11px; height: auto; line-height: 1.2; border: 1px solid #999; text-align: center; white-space: nowrap; background-color: #e6e6e6; }
     .mini-table td { height: auto; font-size: 11px; padding: 4px 6px; line-height: 1.2; border: 1px solid #ccc; }
     .mini-table .total-row td { background-color: #333; color: white; font-weight: bold; border-top: 2px solid #555 !important; }
 
-    /* DYNAMIC TRACKER */
+    /* DYNAMIC TRACKER FORM */
     .dynamic-tracker { background-color: #f4f6f8 !important; color: #333; flex:1; display:flex; flex-direction:column; padding:0 !important; overflow-y:auto; }
     .dynamic-form-card { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 960px; width: 100%; margin: 0 auto; }
     .dynamic-input { background: #ffffff; border: 1px solid #ced4da; color: #333; padding: 8px 12px; border-radius: 4px; width: 100%; font-size: 13px; transition: border-color 0.2s; }
@@ -108,7 +109,7 @@
     .chip-select { cursor: pointer; padding: 6px 12px; border-radius: 20px; background: #f1f3f5; color: #495057; font-size: 11px; margin-right: 5px; margin-bottom: 5px; display: inline-block; border: 1px solid #dee2e6; transition: 0.2s; font-weight: 500; }
     .chip-select.active { background: #3699ff; color: white; border-color: #3699ff; box-shadow: 0 2px 5px rgba(54, 153, 255, 0.3); }
 
-    /* ESTILOS CASCADA */
+    /* ESTILOS CASCADA PROYECTOS */
     .cascade-container { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
     .cascade-item { cursor: pointer; transition: all 0.2s; border-bottom: 1px solid #f0f2f5; position: relative; }
     .cascade-item:hover { background-color: #f8faff; }
@@ -361,14 +362,20 @@
                       <td class="row-num">{{i+1}}</td>
                       <td class="text-center" style="background:#f8f9fa"><button class="btn btn-link btn-sm p-0 text-success" @click="saveRow(row)"><i class="fas fa-save"></i></button></td>
                       <td v-for="(h, idx) in staffTracker.headers" :key="idx">
-                         <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
+                         
+                         <div v-if="isCol(h, ['AREA','ALTA','ESPECIALIDAD'])" style="position:relative; width:100%; height:100%;">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-weight:bold; font-size:12px;">{{ row[h] ? String(row[h]).charAt(0).toUpperCase() : '' }}</div>
                              <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="(dept, k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{dept.label}}</option></select>
                          </div>
-                         <div v-else-if="isCol(h, ['VENDEDOR'])" style="position:relative; width:100%; height:100%; background-color:#f0fdf4;">
-                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">{{ row[h] ? String(row[h]).split(' ')[0] : '' }}</div>
-                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="s in salesStaff" :key="s" :value="s">{{s}}</option></select>
+                         
+                         <div v-else-if="String(h).toUpperCase().includes('VENDEDOR')" style="position:relative; width:100%; height:100%; background-color:#f0fdf4;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:6px; pointer-events:none; font-size:11px; white-space:nowrap; overflow:hidden;">{{ row[h] ? String(row[h]) : '' }}</div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;">
+                                 <option value="">-</option>
+                                 <option v-for="s in salesStaff" :key="s" :value="s">{{s}}</option>
+                             </select>
                          </div>
+                         
                          <div v-else-if="isMediaColumn(h)" class="text-center" style="padding-top:4px; display:flex; gap:2px; flex-wrap:wrap; justify-content:center; align-items:center; height:100%;">
                              <template v-if="row[h]">
                                  <a v-for="(url, uIdx) in String(row[h]).split(/[\n\s]+/).filter(u => u.startsWith('http'))" :key="uIdx" :href="url" target="_blank" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:9px; margin-right:1px;" title="Ver archivo"><i class="fas fa-paperclip"></i></a>
@@ -382,7 +389,7 @@
                          <input v-else-if="isCol(h, ['DIAS','RELOJ'])" v-model="row[h]" style="text-align:center; font-weight:bold; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;" :style="getTrafficStyle(row)">
                          <input v-else-if="String(h).toUpperCase().includes('AVANCE')" v-model="row[h]" style="text-align:center; font-weight:bold; color:#217346; width:100%; height:100%; border:none; outline:none; padding:6px 0px; background:transparent;">
                          <input v-else-if="isCol(h, ['ESTATUS','STATUS'])" v-model="row[h]" style="text-align:center; font-weight:bold; font-size:10px; width:100%; height:100%; border:none; outline:none; padding:6px 1px; background:transparent;" class="excel-input">
-                         <div v-else-if="String(h).toUpperCase().includes('FECHA')" style="position:relative; width:100%; height:100%;" :style="isCol(h, ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FEC. EST. FIN', 'FECHA ESTIMADA DE FIN']) ? getFechaRespuestaStyle(row) : {}">
+                         <div v-else-if="String(h).toUpperCase().includes('FECHA')" style="position:relative; width:100%; height:100%;" :style="isCol(h, ['FECHA RESPUESTA', 'FECHA DE RESPUESTA', 'FEC. EST. FIN', 'FECHA ESTIMADA DE FIN', 'FECHA DE ENTREGA']) ? getFechaRespuestaStyle(row) : {}">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; padding-left:4px; font-size:12px; pointer-events:none;">{{ formatDisplayDate(row[h]) }}</div>
                              <input type="date" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" :value="toIsoDate(row[h])" @input="updateDateFromPicker($event, row, h)">
                          </div>
@@ -402,13 +409,11 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div class="d-flex align-items-center gap-3">
                     <h5 class="m-0 text-primary fw-bold"><i class="fas fa-calendar-week me-2"></i>Planeación Semanal (PPCV3)</h5>
-                    
                     <select v-model="selectedWeek" class="form-select form-select-sm" style="width: auto; font-weight: bold; border-color: #0d6efd;">
                         <option value="">VER TODAS</option>
                         <option v-for="w in availableWeeks" :key="w" :value="w">Semana {{ w }}</option>
                     </select>
                 </div>
-
                 <div>
                     <button class="btn btn-outline-secondary btn-sm me-2" @click="loadWeeklyPlan" title="Recargar"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn btn-light border btn-sm" @click="goHome">Cerrar</button>
@@ -548,7 +553,6 @@
            <div class="d-flex justify-content-between align-items-center mb-3">
                <div class="d-flex align-items-center">
                    <h5 class="m-0 text-primary me-3"><i class="fas fa-th me-2"></i>PPC Maestro</h5>
-                   
                    <div v-if="currentPpcProject" class="badge bg-light text-dark border p-2 d-flex align-items-center animate__animated animate__fadeIn">
                        <i class="fas fa-folder-open text-warning me-2"></i>
                        <span>{{ currentPpcProject.name }}</span>
@@ -556,7 +560,6 @@
                        <button class="btn btn-sm ms-2 text-danger p-0" @click="currentPpcProject = null" title="Quitar filtro"><i class="fas fa-times"></i></button>
                    </div>
                </div>
-
                <div>
                    <button class="btn btn-success fw-bold btn-sm me-2 shadow-sm" @click="openPpcProjectSelector">
                        <i class="fas fa-plus-circle me-1"></i> PPC NUEVO
@@ -669,7 +672,6 @@
               </div>
 
               <div v-if="ppcMode === 'CREATE'">
-                  
                   <div class="d-flex justify-content-center mb-3 bg-light p-2 rounded">
                       <div class="form-check form-check-inline m-0 me-3">
                           <input class="form-check-input" type="radio" id="radioSite" value="SITE" v-model="newProject.creationMode">
@@ -817,29 +819,25 @@
       const ppcMode = ref('SELECT');
       const currentPpcProject = ref(null);
       
-      // VARIABLE UNIFICADA PARA CREAR (SITIOS Y SUBPROYECTOS)
-      // Initial defaults
       const newProject = ref({ name: '', client: '', type: 'OBRA CIVIL', creationMode: 'SUB', parentId: '', createdBy: '' });
 
-      // WATCHER INTELIGENTE PARA CAMBIAR VALORES POR DEFECTO
       watch(() => newProject.value.creationMode, (newVal) => {
           if (newVal === 'SITE') {
-              newProject.value.type = 'CLIENTE'; // Default para Sitio
+              newProject.value.type = 'CLIENTE'; 
           } else {
-              newProject.value.type = 'OBRA CIVIL'; // Default para Subproyecto
+              newProject.value.type = 'OBRA CIVIL'; 
           }
       });
 
       const activeProjectsList = ref([]);
 
-      // ESTADOS PARA MODAL INDEPENDIENTE (Vista Proyectos)
       const showSubProjectModal = ref(false);
       const currentTargetSite = ref({});
       const newSubProject = ref({ name: '', type: 'OBRA CIVIL', createdBy: '' });
 
-      // --- NUEVO: CONFIGURACION DE CARPETAS CON PPC PROYECTO ---
+      // CARPETAS DE PROYECTO
       const projectSubFolders = ref([
-          { name: "PPC PROYECTO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, // <--- NUEVA PESTAÑA
+          { name: "PPC PROYECTO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, 
           { name: "DOCUMENTOS", icon: "fa-file-alt", color: "#3699ff", bg: "#e1f0ff" },
           { name: "PLANOS Y DISEÑOS", icon: "fa-drafting-compass", color: "#6610f2", bg: "#eee5ff" },
           { name: "FOTOGRAFIAS", icon: "fa-images", color: "#e83e8c", bg: "#ffe2e5" },
@@ -848,16 +846,13 @@
       ]);
       const projectCards = ref([]);
       
-      // NUEVO: ESTADO PARA TAREAS DE PROYECTO
       const projectTasks = ref({ data: [], headers: [], isLoading: false });
 
-      // --- FUNCIONES DE CASCADA ---
       const toggleExpand = (item) => { item.expanded = !item.expanded; };
 
       const openFolderContent = (folder, projectName) => {
           if (folder.name === "PPC PROYECTO") {
-             // Abrir la vista de Tareas del Proyecto
-             currentPpcProject.value = { name: projectName }; // Asumimos nombre por ahora
+             currentPpcProject.value = { name: projectName }; 
              currentView.value = 'PROJECT_TASKS_VIEW';
              loadProjectTasks(projectName);
           } else {
@@ -871,7 +866,6 @@
           }
       };
       
-      // --- NUEVAS FUNCIONES PARA CARGAR TAREAS DE PROYECTO ---
       const loadProjectTasks = (projectName) => {
           projectTasks.value.isLoading = true;
           google.script.run.withSuccessHandler(res => {
@@ -893,30 +887,31 @@
           if (!projectTasks.value.headers.length) return;
           const row = { _isNew: true };
           projectTasks.value.headers.forEach(h => row[h] = "");
-          // Pre-llenar datos si es posible
           row['ESTATUS'] = 'PENDIENTE';
-          // La etiqueta [PROY: NAME] se agrega en backend, visualmente puede estar limpia
           projectTasks.value.data.unshift(row);
       };
 
       const saveProjectRow = (row) => {
           if(!currentPpcProject.value) return;
           Swal.showLoading();
-          // Enviamos a guardar con la etiqueta del proyecto
           google.script.run.withSuccessHandler(res => {
               Swal.close();
               if (res.success) {
                   row._isNew = false;
-                  Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
-                  refreshProjectTasks(); // Recargar para ver cambios
+                  // Si el backend lo soportara también aquí:
+                  if(res.moved) {
+                      refreshProjectTasks();
+                      Swal.fire({ icon: 'success', title: 'Archivado', timer: 1000, showConfirmButton: false });
+                  } else {
+                      Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
+                      refreshProjectTasks(); 
+                  }
               } else {
                   Swal.fire('Error', res.message, 'error');
               }
           }).apiSaveProjectTask(JSON.parse(JSON.stringify(row)), currentPpcProject.value.name);
       };
 
-
-      // 1. CARGAR ÁRBOL DESDE BACKEND
       const loadCascadeTree = () => {
           google.script.run.withSuccessHandler(res => {
               if (res.success && res.data.length > 0) {
@@ -930,7 +925,6 @@
           }).apiFetchCascadeTree();
       };
 
-      // 2. ABRIR MODAL UNIFICADO
       const openPpcProjectSelector = () => { 
           showPpcSelectorModal.value = true; 
           ppcMode.value = 'SELECT'; 
@@ -943,24 +937,18 @@
           if (currentView.value === 'PROJECTS') { openModule({ id: 'PPC_MASTER', type: 'ppc_native' }); }
       };
 
-      // 3. LÓGICA DE CREACIÓN UNIFICADA (Sitio o Subproyecto)
       const createNewProject = () => {
           if (!newProject.value.name || !newProject.value.createdBy) return;
           isSubmitting.value = true;
 
-          // A) CREAR SUBPROYECTO (HIJO)
           if (newProject.value.creationMode === 'SUB') {
               google.script.run.withSuccessHandler(res => {
                   if (res.success) {
-                      // 1. AVISAR DE INMEDIATO AL USUARIO (FIX SCRIPTMASTER)
                       Swal.fire({ icon: 'success', title: '¡Creado!', text: 'Se ha guardado en la base de datos.', timer: 1500, showConfirmButton: false });
-                      
-                      // 2. RECARGAR ARBOL EN SEGUNDO PLANO
                       google.script.run.withSuccessHandler(treeRes => {
                           isSubmitting.value = false;
                           if (treeRes.success) {
                               activeProjectsList.value = treeRes.data;
-                              // INTENTAR AUTO-SELECCIONAR
                               const parent = activeProjectsList.value.find(p => String(p.id) === String(newProject.value.parentId));
                               if (parent) {
                                   const createdSub = parent.subProjects.find(s => s.name === newProject.value.name.toUpperCase().trim());
@@ -977,18 +965,14 @@
                   }
               }).apiSaveSubProject({ parentId: newProject.value.parentId, name: newProject.value.name, type: newProject.value.type, createdBy: newProject.value.createdBy });
           } 
-          // B) CREAR SITIO NUEVO (PADRE)
           else {
               google.script.run.withSuccessHandler(res => {
                   if (res.success) {
-                      // AVISO INMEDIATO
                       Swal.fire({ icon: 'success', title: 'Sitio Creado', text: 'Ahora agrega subproyectos.', timer: 2000, showConfirmButton: false });
-                      
                       google.script.run.withSuccessHandler(treeRes => {
                           isSubmitting.value = false;
                           if(treeRes.success) {
                               activeProjectsList.value = treeRes.data;
-                              // Cambiar a modo SUB y preseleccionar el sitio nuevo
                               newProject.value.creationMode = 'SUB';
                               newProject.value.parentId = res.id; 
                               newProject.value.name = '';
@@ -1002,7 +986,6 @@
           }
       };
 
-      // 4. CREAR SUBPROYECTO (MODAL INDEPENDIENTE)
       const openAddSubProject = (site) => {
           currentTargetSite.value = site;
           newSubProject.value = { name: '', type: 'OBRA CIVIL', createdBy: '' };
@@ -1014,18 +997,14 @@
           isSubmitting.value = true;
           
           google.script.run.withSuccessHandler(res => {
-              
               if (res.success) {
-                  // AVISO INMEDIATO
                   Swal.fire({ icon: 'success', title: 'Subproyecto Agregado', timer: 1500, showConfirmButton: false });
-                  showSubProjectModal.value = false; // CERRAR MODAL YA
+                  showSubProjectModal.value = false; 
                   
-                  // RECARGAR EN SEGUNDO PLANO
                   google.script.run.withSuccessHandler(treeRes => {
                       isSubmitting.value = false;
                       if(treeRes.success) {
                           activeProjectsList.value = treeRes.data;
-                          // AHORA SÍ EXPANDIR (CON LA REFERENCIA NUEVA)
                           const updatedSite = activeProjectsList.value.find(s => s.id === currentTargetSite.value.id);
                           if(updatedSite) updatedSite.expanded = true;
                       }
@@ -1038,16 +1017,12 @@
           }).apiSaveSubProject({ parentId: currentTargetSite.value.id, name: newSubProject.value.name, type: newSubProject.value.type, createdBy: newSubProject.value.createdBy });
       };
 
-      // 5. NUEVO: IR A TAREA DESDE SUBPROYECTO
       const openProjectTask = (sub) => {
           currentPpcProject.value = sub;
-          // Vamos al Tracker Dinámico pero PRE-LLENADO
           openModule({ id: "PPC_DINAMICO", type: "ppc_dynamic_view" });
-          // Opcional: Podrías pre-llenar la especialidad basada en el tipo de subproyecto
-          // dynamicPpc.value.especialidad = sub.type; 
       };
 
-      // --- RESTO DEL SISTEMA ---
+      // --- LOGICA GENERAL Y COMPUTED ---
       const salesStaff = computed(() => (config.value.directory || []).filter(p => p.dept === 'VENTAS' && p.name !== 'ANTONIA_VENTAS').map(p => p.name));
       const filteredStaff = computed(() => config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase())));
       const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
@@ -1112,6 +1087,7 @@
           const up = String(h).toUpperCase().trim();
           let w = '120px'; let fs = '12px'; let pad = '8px 4px';
           let align = 'left';
+          
           if (up === 'CONCEPTO' || up.includes('DESCRIP')) { w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '750px' : '500px'; }
           else if (isCol(h, ['ESPECIALIDAD', 'AREA', 'DEPTO'])) { w = '50px'; fs = '11px'; } 
           else if (isCol(h, ['ID', 'FOLIO'])) { w = '40px'; fs = '10px'; align = 'center'; } 
@@ -1119,7 +1095,7 @@
           else if (up.includes('ARCHIVO') || up.includes('CLIP')) { w = '40px'; align = 'center'; }
           else if (up === 'SEMANA') { w = '50px'; align = 'center'; }
           else if (up === 'HORA') { w = '50px'; fs = '10px'; }
-          else if (up === 'FECHA ESTIMADA DE FIN') { w = '75px'; fs = '10px'; }
+          else if (up === 'FECHA ESTIMADA DE FIN' || up === 'FECHA DE ENTREGA') { w = '75px'; fs = '10px'; }
           else if (up === 'HORA ESTIMADA DE FIN') { w = '60px'; fs = '10px'; }
           else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } 
           else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; }
@@ -1129,8 +1105,9 @@
           else if (up.includes('AVANCE')) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
           else if (isCol(h, ['ESTATUS','STATUS'])) { w = '65px'; fs = '10px'; pad = '8px 1px'; }
           else if (up.includes('FECHA') || up.includes('RESPUESTA')) { w = '65px'; fs = '10px'; }
-          else if (up === 'VENDEDOR') { w = '75px'; fs = '10px'; }
+          else if (up.includes('VENDEDOR')) { w = '130px'; fs = '10px'; }
           else if (up === 'CLIENTE') w = '200px';
+          
           return { width: w, fontSize: fs, padding: pad, textAlign: align, overflow: 'hidden', textOverflow: 'ellipsis' };
       };
       
@@ -1205,7 +1182,24 @@
       const openStaffTracker = (p) => { staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true; google.script.run.withSuccessHandler(res => { staffTracker.value.isLoading=false; if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name); };
       const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
       const addNewRow = () => { if(!staffTracker.value.headers.length) return; const row={_isNew:true}; staffTracker.value.headers.forEach(h=>row[h]=""); staffTracker.value.data.unshift(row); };
-      const saveRow = (row) => { Swal.showLoading(); google.script.run.withSuccessHandler(res => { Swal.close(); if(res.success){ row._isNew=false; if(res.moved){ reloadStaffTracker(); Swal.fire({icon: 'success', title: 'Archivado', timer: 1000, showConfirmButton: false}); } else Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false}); } else Swal.fire('Error', res.message, 'error'); }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); };
+      const saveRow = (row) => { 
+          Swal.showLoading(); 
+          google.script.run.withSuccessHandler(res => { 
+              Swal.close(); 
+              if(res.success){ 
+                  row._isNew=false; 
+                  // LOGICA DE AUTO-ARCHIVO
+                  if(res.moved){ 
+                      reloadStaffTracker(); 
+                      Swal.fire({icon: 'success', title: 'Archivado', text: 'Tarea movida a Realizadas (100%)', timer: 1500, showConfirmButton: false}); 
+                  } else {
+                      Swal.fire({icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false}); 
+                  }
+              } else { 
+                  Swal.fire('Error', res.message, 'error'); 
+              } 
+          }).withFailureHandler(handleErr).apiUpdateTask(staffTracker.value.name, JSON.parse(JSON.stringify(row))); 
+      };
       const openCellUpload = (row, col) => { uploadingCell.value = {row, col}; cellFileInput.value.click(); };
       const handleCellFile = (e) => { const file = e.target.files[0]; if(!file || !uploadingCell.value.row) return; Swal.showLoading(); const r = new FileReader(); r.onload = (ev) => { google.script.run.withSuccessHandler(res => { if(res.success){ const colName = String(uploadingCell.value.col).toUpperCase(); if (colName === 'INFO CLIENTE') { const currentVal = uploadingCell.value.row[uploadingCell.value.col] || ''; uploadingCell.value.row[uploadingCell.value.col] = currentVal ? currentVal + '\n' + res.fileUrl : res.fileUrl; } else { uploadingCell.value.row[uploadingCell.value.col] = res.fileUrl; } saveRow(uploadingCell.value.row); } else Swal.fire('Error', res.message, 'error'); e.target.value = null; }).uploadFileToDrive(ev.target.result, file.type, file.name); }; r.readAsDataURL(file); };
       const addResponsable = (n) => { selectedResponsables.value.push(n); staffSearch.value=''; };
@@ -1213,7 +1207,6 @@
       const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
       const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
       
-      // FIX SCRIPTMASTER: AGREGAR PROYECTO AL CONFIRMAR DESDE PPC MAESTRO
       const confirmAddToQueue = () => { 
           const item = JSON.parse(JSON.stringify(ppcData.value)); 
           item.responsable = selectedResponsables.value.join(','); 
@@ -1221,31 +1214,22 @@
           item.prioridades = extraData.value.prioridades; 
           item.riesgos = extraData.value.riesgos; 
           item.clasificacion = extraData.value.clasificacion; 
-          
-          // INYECCION DE ETIQUETA INTELIGENTE
           if(currentPpcProject.value) { 
               const tag = `[PROY: ${currentPpcProject.value.name}]`;
               item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + tag; 
           }
-
           let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); 
       };
       
       const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
       
-      // FIX SCRIPTMASTER: AGREGAR PROYECTO AL GUARDAR DESDE DINAMICO
       const saveDynamicPPC = () => { 
           if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); 
           isSubmitting.value = true; 
           let fResp = dynamicPpc.value.fechaFin; 
           if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } 
-          
-          // Construir Comentario con Proyecto
           let finalComs = dynamicPpc.value.comentarios || '';
-          if(currentPpcProject.value) { 
-              finalComs = (finalComs ? finalComs + ' ' : '') + `[PROY: ${currentPpcProject.value.name}]`; 
-          }
-
+          if(currentPpcProject.value) { finalComs = (finalComs ? finalComs + ' ' : '') + `[PROY: ${currentPpcProject.value.name}]`; }
           const payload = { 
               especialidad: dynamicPpc.value.especialidad, 
               concepto: dynamicPpc.value.concepto, 
@@ -1255,11 +1239,10 @@
               prioridad: dynamicPpc.value.prioridad, 
               fechaRespuesta: fResp, 
               archivoUrl: dynamicPpc.value.archivoUrl, 
-              comentarios: finalComs, // USAR COMENTARIO CON ETIQUETA
+              comentarios: finalComs, 
               horas: '', 
               cumplimiento: 'NO' 
           }; 
-          
           google.script.run.withSuccessHandler(res => { 
               isSubmitting.value = false; 
               if(res.success){ 
@@ -1282,7 +1265,6 @@
       return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData, 
       projectCards, activeProjectsList, projectSubFolders, openFolderContent, toggleExpand, showPpcSelectorModal, openPpcProjectSelector, ppcMode, selectPpcProject, createNewProject, newProject, currentPpcProject,
       loadCascadeTree, showSubProjectModal, currentTargetSite, newSubProject, openAddSubProject, createSubProject, openProjectTask,
-      // NUEVOS EXPORTS PARA VISTA PROYECTO
       projectTasks, refreshProjectTasks, addNewProjectTask, saveProjectRow
       };
     }
