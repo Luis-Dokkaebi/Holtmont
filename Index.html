@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V138 - Cascade Projects</title>
+  <title>Holtmont V142 - ScriptMaster Edition</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
@@ -108,38 +108,31 @@
     .chip-select { cursor: pointer; padding: 6px 12px; border-radius: 20px; background: #f1f3f5; color: #495057; font-size: 11px; margin-right: 5px; margin-bottom: 5px; display: inline-block; border: 1px solid #dee2e6; transition: 0.2s; font-weight: 500; }
     .chip-select.active { background: #3699ff; color: white; border-color: #3699ff; box-shadow: 0 2px 5px rgba(54, 153, 255, 0.3); }
 
-    /* ESTILOS NUEVOS: PROYECTOS EN CASCADA (V138) */
+    /* ESTILOS CASCADA */
     .cascade-container { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
     .cascade-item { cursor: pointer; transition: all 0.2s; border-bottom: 1px solid #f0f2f5; position: relative; }
     .cascade-item:hover { background-color: #f8faff; }
     
-    /* Nivel 1: Sitios (Ej: NIDEC) */
     .cascade-header { padding: 15px 20px; background: #fff; font-weight: 600; color: #343a40; display: flex; align-items: center; border-left: 4px solid transparent; }
     .cascade-header:hover { border-left-color: var(--accent); }
     .cascade-header .expand-icon { margin-right: 15px; color: #adb5bd; transition: transform 0.2s; width: 20px; text-align: center; }
     .cascade-header.expanded .expand-icon { transform: rotate(90deg); color: var(--accent); }
     
-    /* Contenedor de hijos */
     .cascade-children { display: none; background-color: #fcfdfe; position: relative; }
     .cascade-children.show { display: block; animation: fadeIn 0.3s ease; }
-    /* Línea conectora vertical */
     .cascade-children::before { content: ''; position: absolute; top: 0; bottom: 15px; left: 28px; width: 2px; background-color: #e9ecef; z-index: 1; }
 
-    /* Nivel 2: Subproyectos (Ej: PPC TERRACERIAS) */
     .cascade-subitem { padding: 12px 20px 12px 50px; display: flex; align-items: center; font-weight: 500; color: #495057; position: relative; z-index: 2; }
     .cascade-subitem .expand-icon { margin-right: 10px; color: #ced4da; font-size: 11px; transition: transform 0.2s; }
     .cascade-subitem.expanded .expand-icon { transform: rotate(90deg); color: var(--accent); }
     .cascade-subitem .project-icon { margin-right: 10px; color: #6610f2; font-size: 14px; }
 
-    /* Nivel 3: Carpetas Finales (Ej: DOCUMENTOS) */
     .cascade-folder { padding: 10px 20px 10px 85px; display: flex; align-items: center; color: #6c757d; font-size: 12px; position: relative; z-index: 2; transition: 0.2s; }
     .cascade-folder:hover { background-color: #eef6fc; color: var(--accent); }
     .cascade-folder i { margin-right: 10px; font-size: 13px; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
-    
-    /* MODAL PROYECTO */
     .project-type-option { padding: 10px; border: 1px solid #dee2e6; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; flex: 1; }
     .project-type-option:hover { background: #f8f9fa; }
     .project-type-option.selected { background: #e7f1ff; border-color: #0d6efd; color: #0d6efd; font-weight: bold; }
@@ -177,7 +170,7 @@
             <span class="nav-text">Dashboard</span>
         </div>
         
-        <div class="nav-item" :class="{ active: currentView === 'PROJECTS' }" @click="currentView = 'PROJECTS'; currentDept = ''; currentModuleId = '';">
+        <div class="nav-item" v-if="config.accessProjects" :class="{ active: currentView === 'PROJECTS' }" @click="currentView = 'PROJECTS'; currentDept = ''; currentModuleId = '';">
             <div class="nav-icon-col"><i class="fas fa-project-diagram"></i></div>
             <span class="nav-text">Proyectos</span>
         </div>
@@ -250,38 +243,25 @@
           <div class="cascade-container flex-fill overflow-auto">
               
               <div v-for="site in activeProjectsList" :key="site.id" class="cascade-item-wrapper">
-                  
                   <div class="cascade-item cascade-header" :class="{expanded: site.expanded}" @click="toggleExpand(site)">
                       <i class="expand-icon fas fa-chevron-right"></i>
                       <i class="fas fa-building text-primary me-2 opacity-75"></i>
-                      
                       <div class="d-flex flex-column flex-grow-1">
                           <span class="fw-bold">{{ site.name }}</span>
-                          <span class="small text-muted" style="font-size:0.75rem">
-                              {{ site.createdAt }}
-                          </span>
+                          <span class="small text-muted" style="font-size:0.75rem">{{ site.createdAt }}</span>
                       </div>
-
                       <span class="ms-2 badge bg-light text-muted border">{{ site.client }}</span>
-                      
-                      <button class="btn btn-sm btn-link text-success ms-auto p-0" @click.stop="openAddSubProject(site)" title="Crear Subcarpeta/Proyecto aquí">
-                        <i class="fas fa-plus-circle fa-lg"></i>
-                      </button>
+                      <button class="btn btn-sm btn-link text-success ms-auto p-0" @click.stop="openAddSubProject(site)" title="Crear Subcarpeta"><i class="fas fa-plus-circle fa-lg"></i></button>
                   </div>
 
                   <div class="cascade-children" :class="{show: site.expanded}">
-                      
                       <div v-for="(sub, sIdx) in site.subProjects" :key="sIdx" class="cascade-item-wrapper">
-                          
                           <div class="cascade-item cascade-subitem" :class="{expanded: sub.expanded}" @click="toggleExpand(sub)">
                               <i class="expand-icon fas fa-chevron-right"></i>
                               <i class="project-icon fas" :class="sub.icon || 'fa-clipboard-list'"></i>
                               <span class="flex-grow-1">{{ sub.name }}</span>
                               <small class="ms-2 text-muted me-2">({{ sub.type }})</small>
-                              
-                              <button class="btn btn-sm btn-outline-primary py-0 px-2 border-0" @click.stop="openProjectTask(sub)" title="Asignar Tarea a este Proyecto">
-                                <i class="fas fa-clipboard-check"></i>
-                              </button>
+                              <button class="btn btn-sm btn-outline-primary py-0 px-2 border-0" @click.stop="openProjectTask(sub)" title="Asignar Tarea a este Proyecto"><i class="fas fa-clipboard-check"></i></button>
                           </div>
 
                           <div class="cascade-children" :class="{show: sub.expanded}">
@@ -292,16 +272,55 @@
                                    <span>{{ folder.name }}</span>
                                </div>
                           </div>
-
                       </div>
-                      <div v-if="!site.subProjects || site.subProjects.length === 0" class="text-muted small p-3 ps-5 ms-4 fst-italic">
-                          No hay proyectos en este sitio.
-                      </div>
-
+                      <div v-if="!site.subProjects || site.subProjects.length === 0" class="text-muted small p-3 ps-5 ms-4 fst-italic">No hay proyectos.</div>
                   </div>
               </div>
           </div>
+        </div>
 
+        <div v-if="currentView === 'PROJECT_TASKS_VIEW'" class="h-100 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-white border rounded">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light btn-sm border me-2" @click="currentView = 'PROJECTS'"><i class="fas fa-arrow-left"></i></button>
+                <div class="d-flex flex-column">
+                    <span class="small fw-bold text-muted">ACTIVIDADES DEL PROYECTO:</span>
+                    <span class="fw-bold text-primary">{{ currentPpcProject ? currentPpcProject.name : '' }}</span>
+                </div>
+            </div>
+            <div>
+                 <button class="btn btn-primary btn-sm me-2" @click="refreshProjectTasks"><i class="fas fa-sync-alt"></i></button>
+                 <button class="btn btn-success btn-sm fw-bold" @click="addNewProjectTask"><i class="fas fa-plus"></i> NUEVA ACTIVIDAD</button>
+            </div>
+          </div>
+          
+          <div class="excel-container flex-fill">
+             <div v-if="projectTasks.isLoading" class="text-center p-5 text-muted">Cargando actividades...</div>
+             <div v-else-if="projectTasks.data.length === 0" class="text-center p-5 text-muted fst-italic">No hay actividades registradas para este proyecto.</div>
+             <table v-else class="table-excel">
+                <thead>
+                  <tr>
+                    <th class="row-num">#</th>
+                    <th style="width:40px"><i class="fas fa-save"></i></th>
+                    <th v-for="(h, idx) in projectTasks.headers" :key="idx" :style="getColumnStyle(h)">{{ getHeaderLabel(h) }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                   <tr v-for="(row, i) in projectTasks.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                      <td class="row-num">{{i+1}}</td>
+                      <td class="text-center" style="background:#f8f9fa"><button class="btn btn-link btn-sm p-0 text-success" @click="saveProjectRow(row)"><i class="fas fa-save"></i></button></td>
+                      <td v-for="(h, idx) in projectTasks.headers" :key="idx">
+                         <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
+                             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-weight:bold; font-size:12px;">{{ row[h] ? String(row[h]).charAt(0).toUpperCase() : '' }}</div>
+                             <select v-model="row[h]" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;"><option value="">-</option><option v-for="(dept, k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{dept.label}}</option></select>
+                         </div>
+                         <input v-else-if="isCol(h, ['ESTATUS','STATUS'])" v-model="row[h]" class="excel-input" style="font-weight:bold">
+                         <input v-else v-model="row[h]" class="excel-input">
+                      </td>
+                   </tr>
+                </tbody>
+             </table>
+          </div>
         </div>
 
         <div v-if="currentView === 'DEPT'">
@@ -334,16 +353,13 @@
                   <tr>
                     <th class="row-num">#</th>
                     <th style="width:40px"><i class="fas fa-save"></i></th>
-                    <th v-for="(h, idx) in staffTracker.headers" :key="idx" :style="getColumnStyle(h)">
-                        {{ getHeaderLabel(h) }}
-                    </th>
+                    <th v-for="(h, idx) in staffTracker.headers" :key="idx" :style="getColumnStyle(h)">{{ getHeaderLabel(h) }}</th>
                   </tr>
                 </thead>
                 <tbody>
                    <tr v-for="(row, i) in staffTracker.data" :key="i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td>
                       <td class="text-center" style="background:#f8f9fa"><button class="btn btn-link btn-sm p-0 text-success" @click="saveRow(row)"><i class="fas fa-save"></i></button></td>
-                      
                       <td v-for="(h, idx) in staffTracker.headers" :key="idx">
                          <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
                              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-weight:bold; font-size:12px;">{{ row[h] ? String(row[h]).charAt(0).toUpperCase() : '' }}</div>
@@ -772,6 +788,7 @@
   const { createApp, ref, computed, onMounted, watch } = Vue;
   const app = createApp({
     setup() {
+      // ESTADO GLOBAL
       const isLoggedIn = ref(false); const loginPass = ref(''); const loginUser = ref(''); const loggingIn = ref(false); const currentUser = ref('');
       const currentView = ref('DASHBOARD'); const currentDept = ref('');
       const config = ref({ departments: {}, staff: [], directory: [], specialModules: [] });
@@ -820,7 +837,9 @@
       const currentTargetSite = ref({});
       const newSubProject = ref({ name: '', type: 'OBRA CIVIL', createdBy: '' });
 
+      // --- NUEVO: CONFIGURACION DE CARPETAS CON PPC PROYECTO ---
       const projectSubFolders = ref([
+          { name: "PPC PROYECTO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, // <--- NUEVA PESTAÑA
           { name: "DOCUMENTOS", icon: "fa-file-alt", color: "#3699ff", bg: "#e1f0ff" },
           { name: "PLANOS Y DISEÑOS", icon: "fa-drafting-compass", color: "#6610f2", bg: "#eee5ff" },
           { name: "FOTOGRAFIAS", icon: "fa-images", color: "#e83e8c", bg: "#ffe2e5" },
@@ -828,19 +847,74 @@
           { name: "REPORTES", icon: "fa-chart-pie", color: "#198754", bg: "#c9f7f5" }
       ]);
       const projectCards = ref([]);
+      
+      // NUEVO: ESTADO PARA TAREAS DE PROYECTO
+      const projectTasks = ref({ data: [], headers: [], isLoading: false });
 
       // --- FUNCIONES DE CASCADA ---
       const toggleExpand = (item) => { item.expanded = !item.expanded; };
 
       const openFolderContent = (folder, projectName) => {
-          Swal.fire({
-              title: `${folder.name} (${projectName})`,
-              text: 'Carpeta vacía por el momento.',
-              icon: 'info',
-              iconColor: folder.color,
-              confirmButtonColor: folder.color
-          });
+          if (folder.name === "PPC PROYECTO") {
+             // Abrir la vista de Tareas del Proyecto
+             currentPpcProject.value = { name: projectName }; // Asumimos nombre por ahora
+             currentView.value = 'PROJECT_TASKS_VIEW';
+             loadProjectTasks(projectName);
+          } else {
+             Swal.fire({
+                title: `${folder.name} (${projectName})`,
+                text: 'Carpeta vacía por el momento.',
+                icon: 'info',
+                iconColor: folder.color,
+                confirmButtonColor: folder.color
+             });
+          }
       };
+      
+      // --- NUEVAS FUNCIONES PARA CARGAR TAREAS DE PROYECTO ---
+      const loadProjectTasks = (projectName) => {
+          projectTasks.value.isLoading = true;
+          google.script.run.withSuccessHandler(res => {
+              projectTasks.value.isLoading = false;
+              if (res.success) {
+                  projectTasks.value.data = res.data;
+                  projectTasks.value.headers = res.headers;
+              } else {
+                  Swal.fire('Error', res.message, 'error');
+              }
+          }).apiFetchProjectTasks(projectName);
+      };
+
+      const refreshProjectTasks = () => {
+          if(currentPpcProject.value) loadProjectTasks(currentPpcProject.value.name);
+      };
+
+      const addNewProjectTask = () => {
+          if (!projectTasks.value.headers.length) return;
+          const row = { _isNew: true };
+          projectTasks.value.headers.forEach(h => row[h] = "");
+          // Pre-llenar datos si es posible
+          row['ESTATUS'] = 'PENDIENTE';
+          // La etiqueta [PROY: NAME] se agrega en backend, visualmente puede estar limpia
+          projectTasks.value.data.unshift(row);
+      };
+
+      const saveProjectRow = (row) => {
+          if(!currentPpcProject.value) return;
+          Swal.showLoading();
+          // Enviamos a guardar con la etiqueta del proyecto
+          google.script.run.withSuccessHandler(res => {
+              Swal.close();
+              if (res.success) {
+                  row._isNew = false;
+                  Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
+                  refreshProjectTasks(); // Recargar para ver cambios
+              } else {
+                  Swal.fire('Error', res.message, 'error');
+              }
+          }).apiSaveProjectTask(JSON.parse(JSON.stringify(row)), currentPpcProject.value.name);
+      };
+
 
       // 1. CARGAR ÁRBOL DESDE BACKEND
       const loadCascadeTree = () => {
@@ -1138,6 +1212,8 @@
       const openFileDialog = () => fileInput.value.click();
       const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
       const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
+      
+      // FIX SCRIPTMASTER: AGREGAR PROYECTO AL CONFIRMAR DESDE PPC MAESTRO
       const confirmAddToQueue = () => { 
           const item = JSON.parse(JSON.stringify(ppcData.value)); 
           item.responsable = selectedResponsables.value.join(','); 
@@ -1145,9 +1221,16 @@
           item.prioridades = extraData.value.prioridades; 
           item.riesgos = extraData.value.riesgos; 
           item.clasificacion = extraData.value.clasificacion; 
-          if(currentPpcProject.value) { item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + `[PROY: ${currentPpcProject.value.name}]`; }
+          
+          // INYECCION DE ETIQUETA INTELIGENTE
+          if(currentPpcProject.value) { 
+              const tag = `[PROY: ${currentPpcProject.value.name}]`;
+              item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + tag; 
+          }
+
           let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); 
       };
+      
       const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
       
       // FIX SCRIPTMASTER: AGREGAR PROYECTO AL GUARDAR DESDE DINAMICO
@@ -1198,7 +1281,9 @@
       
       return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData, 
       projectCards, activeProjectsList, projectSubFolders, openFolderContent, toggleExpand, showPpcSelectorModal, openPpcProjectSelector, ppcMode, selectPpcProject, createNewProject, newProject, currentPpcProject,
-      loadCascadeTree, showSubProjectModal, currentTargetSite, newSubProject, openAddSubProject, createSubProject, openProjectTask
+      loadCascadeTree, showSubProjectModal, currentTargetSite, newSubProject, openAddSubProject, createSubProject, openProjectTask,
+      // NUEVOS EXPORTS PARA VISTA PROYECTO
+      projectTasks, refreshProjectTasks, addNewProjectTask, saveProjectRow
       };
     }
   });
