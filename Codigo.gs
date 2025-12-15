@@ -2,11 +2,11 @@
  * ======================================================================
  * HOLTMONT WORKSPACE V153 - SCRIPTMASTER EDITION
  * Fix Crítico: Protocolo Anti-Bloqueo (Elimina Filtros en Tablas Rotas)
+ * Incluye: Comandos para Botones en Hoja (UI)
  * ======================================================================
  */
 
 const SS = SpreadsheetApp.getActiveSpreadsheet();
-
 // --- CONFIGURACIÓN ---
 const APP_CONFIG = {
   folderIdUploads: "", 
@@ -15,7 +15,6 @@ const APP_CONFIG = {
   salesSheetName: "Datos",        
   logSheetName: "LOG_SISTEMA"
 };
-
 // USUARIOS
 const USER_DB = {
   "LUIS_CARLOS":      { pass: "admin2025", role: "ADMIN", label: "Administrador" },
@@ -148,7 +147,7 @@ function getSystemConfig(role) {
     { name: "EDGAR HOLT", dept: "DISEÑO" },
     { name: "EDGAR LOPEZ", dept: "DISEÑO" }
   ];
-  
+
   const allDepts = {
       "CONSTRUCCION": { label: "Construcción", icon: "fa-hard-hat", color: "#e83e8c" },
       "COMPRAS": { label: "Compras/Almacén", icon: "fa-shopping-cart", color: "#198754" },
@@ -172,7 +171,7 @@ function getSystemConfig(role) {
       specialModules: [ ppcModuleMaster ],
       accessProjects: false 
   };
-  
+
   if (role === 'ANGEL_USER') {
     return {
       departments: { "DISEÑO": allDepts["DISEÑO"], "VENTAS": allDepts["VENTAS"] },
@@ -227,7 +226,7 @@ function getSystemConfig(role) {
       specialModules: ppcModules,
       accessProjects: true 
   };
-  
+
   if (role === 'ADMIN_CONTROL') {
     return {
       departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
@@ -253,35 +252,27 @@ function internalFetchSheetData(sheetName) {
   try {
     const sheet = findSheetSmart(sheetName);
     if (!sheet) return { success: true, data: [], history: [], headers: [], message: `Falta hoja: ${sheetName}` };
-    
     const values = sheet.getDataRange().getValues();
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
-    
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-    
     const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
     const validIndices = [];
     const cleanHeaders = [];
-    
     rawHeaders.forEach((h, index) => {
       if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
     });
-    
     const dataRows = values.slice(headerRowIndex + 1);
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-    
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-      
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
-      
       validIndices.forEach((colIndex, k) => {
         const headerName = cleanHeaders[k];
         let val = row[colIndex];
@@ -298,10 +289,9 @@ function internalFetchSheetData(sheetName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
-      
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
-        rowObj['_rowIndex'] = headerRowIndex + i + 2; 
+        rowObj['_rowIndex'] = headerRowIndex + i + 2;
         if (isReadingHistory) historyTasks.push(rowObj); else activeTasks.push(rowObj);
       }
     }
@@ -311,14 +301,12 @@ function internalFetchSheetData(sheetName) {
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
       return dB - dA;
     };
-    
     return { 
       success: true, 
       data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), 
       history: historyTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), 
       headers: cleanHeaders 
     };
-    
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
@@ -335,7 +323,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
-      return { success: false, message: "Hoja ocupada, intenta de nuevo." };
+      return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   }
   
   try {
@@ -358,14 +346,11 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     }
 
     if (headersChanged) {
-        // SI LOS HEADERS ESTABAN ROTOS, EL FILTRO SE ROMPE AL ESCRIBIR.
         // SOLUCIÓN: QUITAR EL FILTRO ANTES DE HACER NADA.
         const existingFilter = sheet.getFilter();
         if (existingFilter) {
             try { existingFilter.remove(); } catch(e) {} 
         }
-        
-        // Guardar corrección de cabeceras inmediatamente
         sheet.getRange(headerRowIndex + 1, 1, 1, values[headerRowIndex].length).setValues([values[headerRowIndex]]);
         SpreadsheetApp.flush(); 
     }
@@ -376,7 +361,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
 
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-    
     const getColIdx = (key) => {
       const k = key.toUpperCase().trim();
       if (colMap[k] !== undefined) return colMap[k];
@@ -402,7 +386,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
       return -1;
     };
-    
     const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
     let rowsToAppend = [];
     let singleRowIndex = -1;
@@ -426,7 +409,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
 
       if (rowIndex > -1 && rowIndex < values.length) {
          Object.keys(task).forEach(key => {
-          if (key.startsWith('_')) return;
+           if (key.startsWith('_')) return;
           const cIdx = getColIdx(key);
           if (cIdx > -1) values[rowIndex][cIdx] = task[key];
         });
@@ -435,7 +418,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       } 
       else {
           const newRow = new Array(totalColumns).fill("");
-          Object.keys(task).forEach(key => {
+           Object.keys(task).forEach(key => {
               if (key.startsWith('_')) return;
               const cIdx = getColIdx(key);
               if (cIdx > -1) newRow[cIdx] = task[key];
@@ -445,7 +428,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
           }
           const statusIdx = getColIdx('ESTATUS');
           if(statusIdx > -1 && !newRow[statusIdx]) newRow[statusIdx] = 'ASIGNADO';
-
           rowsToAppend.push(newRow);
       }
     });
@@ -453,7 +435,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     // 3. AUTO-ARCHIVADO
     let rowsMoved = false;
     const avanceIdx = getColIdx('AVANCE');
-    
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
@@ -468,7 +449,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         let activeRows = [];
         let separatorRow = [];
         let historyRows = [];
-
         if (separatorIndex === -1) {
             activeRows = values.slice(headerRowIndex + 1);
         } else {
@@ -483,7 +463,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         activeRows.forEach(row => {
             const val = String(row[avanceIdx] || "").trim();
             const isComplete = val === "100" || val === "100%" || val === "1.0" || val === "1";
-            
             if (isComplete) {
                 movedRows.push(row);
                 rowsMoved = true;
@@ -494,20 +473,12 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
 
         if (rowsMoved || (rowsToAppend.length > 0 && separatorIndex === -1)) {
             if (separatorRow.length === 0) {
-                const sep = new Array(totalColumns).fill(""); 
+                const sep = new Array(totalColumns).fill("");
                 const titleCol = totalColumns > 2 ? 2 : 0; 
                 sep[titleCol] = "TAREAS REALIZADAS";
                 separatorRow = [sep];
             }
-            
-            values = [
-                ...headerAndTop,
-                ...rowsToAppend, 
-                ...newActiveRows,
-                ...separatorRow,
-                ...movedRows,    
-                ...historyRows
-            ];
+            values = [ ...headerAndTop, ...rowsToAppend, ...newActiveRows, ...separatorRow, ...movedRows, ...historyRows ];
             rowsToAppend = []; 
             modified = true;
             singleRowIndex = -1;
@@ -522,7 +493,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            const diff = finalMaxCols - r.length;
            return r.concat(new Array(diff).fill(""));
        });
-
        if (tasksArray.length === 1 && singleRowIndex > -1 && !rowsMoved) {
           let singleRow = values[singleRowIndex];
           if(singleRow.length < finalMaxCols) {
@@ -553,7 +523,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     
     SpreadsheetApp.flush();
     return { success: true, moved: rowsMoved };
-
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
@@ -569,7 +538,6 @@ function apiUpdatePPCV3(taskData) {
 function internalUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -670,7 +638,6 @@ function apiSavePPCData(payload) {
           if (!tasksBySheet[key]) tasksBySheet[key] = [];
           tasksBySheet[key].push(task);
       };
-
       items.forEach(item => {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           rowsForPPC.push([
@@ -691,7 +658,6 @@ function apiSavePPCData(payload) {
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
           responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
-
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
@@ -793,7 +759,6 @@ function apiFetchWeeklyPlanData() {
         }
         rowObj[h] = val;
       });
-
       const fechaVal = rowObj["FECHA"];
       let semanaNum = "-";
       if (fechaVal) {
@@ -995,7 +960,6 @@ function apiFetchCascadeTree() {
         }
       }
     }
-
     return { success: true, data: sites };
   } catch (e) {
     console.error(e);
@@ -1024,15 +988,12 @@ function apiFetchProjectTasks(projectName) {
     };
     if (colIdx.concepto === -1) colIdx.concepto = headers.findIndex(h => h.includes("CONCEPTO") || h.includes("DESCRIPCI"));
     if (colIdx.comentarios === -1) colIdx.comentarios = headers.findIndex(h => h.includes("COMENTARIOS"));
-
     const dataRows = values.slice(headerRowIdx + 1);
     const filteredTasks = [];
-
     for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const comText = (colIdx.comentarios > -1 && row[colIdx.comentarios]) ? String(row[colIdx.comentarios]).toUpperCase() : "";
         const descText = (colIdx.concepto > -1 && row[colIdx.concepto]) ? String(row[colIdx.concepto]).toUpperCase() : "";
-        
         if (comText.includes(projectTag) || descText.includes(projectTag)) {
             let rowObj = { _rowIndex: headerRowIdx + i + 2 };
             headers.forEach((h, k) => {
@@ -1063,4 +1024,145 @@ function apiSaveProjectTask(taskData, projectName) {
     } catch (e) {
         return { success: false, message: e.toString() };
     }
+}
+
+/**
+ * ======================================================================
+ * FUNCIONALIDAD ADICIONAL: BOTONES EN HOJA (COMANDOS UI)
+ * ======================================================================
+ */
+
+// Menú opcional para acceso rápido
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('⚡ HOLTMONT CMD')
+    .addItem('✅ REALIZAR ALTA (Fila Actual)', 'cmdRealizarAlta')
+    .addItem('🔄 ACTUALIZAR (Fila Actual)', 'cmdActualizar')
+    .addToUi();
+}
+
+/**
+ * ASIGNAR A BOTÓN: "REALIZAR ALTA"
+ * Lee la fila activa, genera ID si falta, y distribuye.
+ */
+function cmdRealizarAlta() {
+  const sheet = SS.getActiveSheet();
+  const row = sheet.getActiveRange().getRow();
+  const ui = SpreadsheetApp.getUi();
+  
+  // Lectura de datos
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const headerIdx = findHeaderRow(values);
+  
+  if (headerIdx === -1 || row <= headerIdx + 1) {
+    ui.alert("⚠️ Por favor selecciona una celda dentro de una fila de datos válida.");
+    return;
+  }
+
+  const headers = values[headerIdx].map(h => String(h).toUpperCase().trim());
+  const rowData = values[row - 1]; // Array de valores de la fila
+  const taskObj = {};
+  
+  // Mapeo dinámico
+  headers.forEach((h, i) => {
+    if (h) taskObj[h] = rowData[i];
+  });
+
+  // Validaciones mínimas
+  if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) {
+    ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN.");
+    return;
+  }
+
+  // Generación de ID si no existe
+  if (!taskObj["FOLIO"] && !taskObj["ID"]) {
+    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    // Escribir el ID generado de vuelta en la hoja para feedback visual
+    const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
+    if (folioCol > -1) {
+      sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]);
+    }
+  }
+
+  // Feedback inicial
+  SS.toast("Guardando y distribuyendo tarea...", "Holtmont", 5);
+
+  // Distribuir usando la lógica existente
+  // 1. Guardar en la hoja actual (forzar actualización de formatos)
+  const currentSheetName = sheet.getName();
+  taskObj['ESTATUS'] = taskObj['ESTATUS'] || 'ASIGNADO';
+  
+  // 2. Distribuir a ADMINISTRADOR e INVOLUCRADOS
+  // Nota: Reutilizamos la lógica de apiSavePPCData pero adaptada
+  const involucrados = taskObj["INVOLUCRADOS"] || taskObj["RESPONSABLE"] || "";
+  const listaInv = String(involucrados).split(",").map(s => s.trim()).filter(s => s);
+  
+  // Guardar en Administrador
+  internalBatchUpdateTasks("ADMINISTRADOR", [taskObj]);
+  
+  // Guardar en las hojas de los responsables
+  listaInv.forEach(nombre => {
+    internalBatchUpdateTasks(nombre, [taskObj]);
+  });
+
+  // Guardar en la hoja actual (si no es una de las anteriores)
+  if (currentSheetName !== "ADMINISTRADOR" && !listaInv.includes(currentSheetName)) {
+    internalBatchUpdateTasks(currentSheetName, [taskObj]);
+  }
+
+  ui.alert(`✅ Tarea Guardada: ${taskObj["FOLIO"] || taskObj["ID"]}\nDistribulda a: ADMINISTRADOR y ${listaInv.join(", ")}`);
+}
+
+
+/**
+ * ASIGNAR A BOTÓN: "ACTUALIZAR"
+ * Busca por ID y actualiza el estado/avance en todas partes.
+ */
+function cmdActualizar() {
+  const sheet = SS.getActiveSheet();
+  const row = sheet.getActiveRange().getRow();
+  const ui = SpreadsheetApp.getUi();
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  const headerIdx = findHeaderRow(values);
+
+  if (headerIdx === -1 || row <= headerIdx + 1) {
+    ui.alert("⚠️ Selecciona una fila de datos válida.");
+    return;
+  }
+
+  const headers = values[headerIdx].map(h => String(h).toUpperCase().trim());
+  const rowData = values[row - 1];
+  const taskObj = { _rowIndex: row }; // Importante: pasamos el índice para optimizar la hoja actual
+
+  headers.forEach((h, i) => {
+    if (h) taskObj[h] = rowData[i];
+  });
+
+  const id = taskObj["FOLIO"] || taskObj["ID"];
+  if (!id) {
+    ui.alert("❌ No se encontró un FOLIO o ID en esta fila. No se puede sincronizar.");
+    return;
+  }
+
+  SS.toast("Sincronizando cambios...", "Holtmont", 3);
+
+  // 1. Actualizar hoja actual (esto maneja el auto-archivado si está al 100%)
+  const resLocal = internalBatchUpdateTasks(sheet.getName(), [taskObj]);
+
+  // 2. Replicar cambios en ADMINISTRADOR (Si esta hoja no es admin)
+  if (sheet.getName() !== "ADMINISTRADOR") {
+     // Para sincronizar en otro lado, necesitamos quitar el _rowIndex porque el índice allá es diferente
+     const syncObj = { ...taskObj };
+     delete syncObj._rowIndex;
+     internalBatchUpdateTasks("ADMINISTRADOR", [syncObj]);
+  }
+
+  if (resLocal.moved) {
+    ui.alert("✅ Tarea Actualizada y ARCHIVADA (Completada).");
+  } else {
+    SS.toast("✅ Actualización completada.");
+  }
 }
