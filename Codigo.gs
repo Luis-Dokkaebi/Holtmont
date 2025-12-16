@@ -449,17 +449,26 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     // 2. Procesar Tareas
     tasksArray.forEach(task => {
       let rowIndex = -1;
+      const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
       
       if (task._rowIndex) {
-        rowIndex = parseInt(task._rowIndex) - 1; 
-      } else {
-        const tFolio = String(task['FOLIO'] || task['ID'] || "").toUpperCase();
-        if (tFolio && folioIdx > -1) {
+        const candidateIdx = parseInt(task._rowIndex) - 1;
+        if (candidateIdx >= 0 && candidateIdx < values.length) {
+             if (tFolio && folioIdx > -1) {
+                 if (String(values[candidateIdx][folioIdx]).toUpperCase() === tFolio) {
+                     rowIndex = candidateIdx;
+                 }
+             } else {
+                 rowIndex = candidateIdx;
+             }
+        }
+      }
+
+      if (rowIndex === -1 && tFolio && folioIdx > -1) {
            for (let i = headerRowIndex + 1; i < values.length; i++) {
              const row = values[i];
              if (String(row[folioIdx]).toUpperCase() === tFolio) { rowIndex = i; break; }
           }
-        }
       }
 
       if (rowIndex > -1 && rowIndex < values.length) {
@@ -698,7 +707,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -868,7 +877,7 @@ function apiSaveSite(siteData) {
          }
       }
 
-      const id = "SITE-" + new Date().getTime();
+      const id = "SITE-" + Utilities.getUuid();
       sheet.appendRow([
         id,
         cleanName,
@@ -918,7 +927,7 @@ function apiSaveSubProject(subProjectData) {
           }
       }
 
-      const id = "PROJ-" + new Date().getTime();
+      const id = "PROJ-" + Utilities.getUuid();
       sheet.appendRow([
         id,
         subProjectData.parentId,
@@ -1123,7 +1132,7 @@ function cmdRealizarAlta() {
   }
 
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) {
       sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]);
