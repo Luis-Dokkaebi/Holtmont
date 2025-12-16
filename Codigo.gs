@@ -1,7 +1,7 @@
 /**
  * ======================================================================
  * HOLTMONT WORKSPACE V158 - SCRIPTMASTER EDITION
- * Backend: Lógica de servidor optimizada con alias para Comentarios
+ * Backend: Lógica optimizada con detección de Especialidad para Filtros
  * ======================================================================
  */
 
@@ -800,6 +800,9 @@ function apiFetchWeeklyPlanData() {
     
     const mappedHeaders = originalHeaders.map(h => {
         const up = h.toUpperCase();
+        // Mapeo explicito para filtros de Frontend
+        if (up.includes("ESPECIALIDAD") || up.includes("AREA") || up.includes("DEPARTAMENTO")) return "ESPECIALIDAD";
+        
         if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
         if (up.includes("INVOLUCRADOS") || up.includes("RESPONSABLE")) return "RESPONSABLE";
         if (up.includes("ALTA") || up.includes("FECHA")) return "FECHA";
