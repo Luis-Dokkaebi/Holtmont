@@ -148,7 +148,12 @@
       <p class="text-muted mb-4">Acceso Seguro</p>
       <div class="mb-3">
           <input type="text" v-model="loginUser" class="form-control text-center mb-2" placeholder="Usuario">
-          <input type="password" v-model="loginPass" class="form-control text-center" placeholder="Contraseña..." @keyup.enter="doLogin">
+          <div class="input-group">
+              <input :type="showPassword ? 'text' : 'password'" v-model="loginPass" class="form-control text-center" placeholder="Contraseña..." @keyup.enter="doLogin">
+              <button class="btn btn-light border" type="button" @click="showPassword = !showPassword" title="Mostrar/Ocultar">
+                  <i class="fas" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+          </div>
       </div>
       <button class="btn btn-success w-100 fw-bold" @click="doLogin" :disabled="loggingIn">
         <span v-if="loggingIn">Conectando...</span><span v-else>INICIAR SESIÓN</span>
@@ -427,11 +432,20 @@
 
         <div v-if="currentView === 'WEEKLY_PLAN'" class="h-100 d-flex flex-column" style="background:white; padding:20px;">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="d-flex align-items-center gap-3">
-                    <h5 class="m-0 text-primary fw-bold"><i class="fas fa-calendar-week me-2"></i>Planeación Semanal (PPCV3)</h5>
-                    <select v-model="selectedWeek" class="form-select form-select-sm" style="width: auto; font-weight: bold; border-color: #0d6efd;">
-                        <option value="">VER TODAS</option>
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="m-0 text-primary fw-bold me-2"><i class="fas fa-calendar-week me-2"></i>PPCV3</h5>
+                    <select v-model="selectedWeek" class="form-select form-select-sm border-primary" style="width: auto; font-weight: bold;">
+                        <option value="">VER TODAS LAS SEMANAS</option>
                         <option v-for="w in availableWeeks" :key="w" :value="w">Semana {{ w }}</option>
+                    </select>
+                    <select v-model="filterSpecialty" class="form-select form-select-sm border-secondary" style="width: auto;">
+                        <option value="">TODAS LAS ÁREAS</option>
+                        <option v-for="sp in availableSpecialties" :key="sp" :value="sp">{{ sp }}</option>
+                    </select>
+                    <select v-model="filterCompliance" class="form-select form-select-sm border-secondary" style="width: auto;">
+                        <option value="">CUMPLIMIENTO (TODOS)</option>
+                        <option value="SI">CUMPLIDO (SI)</option>
+                        <option value="NO">NO CUMPLIDO (NO)</option>
                     </select>
                 </div>
                 <div>
@@ -615,6 +629,7 @@
       const staffTracker = ref({ name: '', data: [], history: [], headers: [], isLoading: false, previousView: 'DEPT' });
       const weeklyPlanData = ref({ headers: [], data: [], isLoading: false }); 
       const searchQuery = ref(''); const isCompact = ref(false); 
+      const showPassword = ref(false); // NUEVA VARIABLE PARA TOGGLE PASSWORD
       
       const ppcData = ref({ cumplimiento: 'NO', cliente: '', comentarios:'', comentariosPrevios:'' }); 
       const isSubmitting = ref(false);
@@ -631,6 +646,10 @@
 
       const selectedWeek = ref(''); 
       const currentModuleId = ref('');
+      
+      // NUEVOS FILTROS PPC SEMANAL
+      const filterSpecialty = ref('');
+      const filterCompliance = ref('');
 
       // ECG (Electrocardiograma) STATE
       const ecgData = ref({});
@@ -761,7 +780,16 @@
       });
 
       const availableWeeks = computed(() => { const allWeeks = weeklyPlanData.value.data.map(i => i.SEMANA).filter(w => w && w !== '-'); return [...new Set(allWeeks)].sort((a,b) => b - a); });
-      const filteredWeeklyData = computed(() => { if (!selectedWeek.value) return weeklyPlanData.value.data; return weeklyPlanData.value.data.filter(r => String(r.SEMANA) == String(selectedWeek.value)); });
+      const availableSpecialties = computed(() => [...new Set(weeklyPlanData.value.data.map(r => r.ESPECIALIDAD).filter(x => x))].sort());
+
+      const filteredWeeklyData = computed(() => { 
+          let data = weeklyPlanData.value.data;
+          if (selectedWeek.value) { data = data.filter(r => String(r.SEMANA) == String(selectedWeek.value)); }
+          if (filterSpecialty.value) { data = data.filter(r => String(r.ESPECIALIDAD).trim() === String(filterSpecialty.value).trim()); }
+          if (filterCompliance.value) { data = data.filter(r => String(r.CUMPLIMIENTO).toUpperCase().trim() === String(filterCompliance.value).toUpperCase().trim()); }
+          return data; 
+      });
+
       const weeklyStats = computed(() => {
            const data = filteredWeeklyData.value || []; const stats = []; let grandTotal = 0; let grandSi = 0;
            const depts = config.value.allDepartments || config.value.departments || {}; const norm = s => String(s||'').toUpperCase().trim();
@@ -778,7 +806,7 @@
       const isCol = (h, list) => list.includes(String(h).toUpperCase().trim());
       const getColumnStyle = (h) => {
           const up = String(h).toUpperCase().trim(); let w = '120px'; let fs = '12px'; let pad = '8px 4px'; let align = 'left';
-          if (up === 'CONCEPTO' || up.includes('DESCRIP')) { w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '750px' : '500px'; }
+          if (up === 'CONCEPTO' || up.includes('DESCRIP')) { w = (staffTracker.value.name === 'ANTONIA_VENTAS') ? '600px' : '380px'; }
           else if (isCol(h, ['ESPECIALIDAD', 'AREA', 'DEPTO'])) { w = '50px'; fs = '11px'; } 
           else if (isCol(h, ['ID', 'FOLIO'])) { w = '40px'; fs = '10px'; align = 'center'; } 
           else if (up.includes('CUMPLIMIENTO')) { w = '50px'; align = 'center'; fs = '11px'; }
@@ -790,17 +818,17 @@
           else if (up.includes('PRIORIDAD')) { w = '70px'; fs = '10px'; } 
           else if (up.includes('RIESGO')) { w = '70px'; fs = '10px'; }
           else if (up === 'REQUISITOR') { w = '90px'; fs = '11px'; } 
-          else if (up === 'INFO CLIENTE') { w = '90px'; fs = '11px'; } 
+          else if (up === 'INFO CLIENTE') { w = '70px'; fs = '10px'; align='center'; } 
           else if (isCol(h, ['DIAS','RELOJ','CLASIFICACION'])) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
           else if (up.includes('AVANCE')) { w = '40px'; fs = '10px'; pad = '8px 1px'; }
           else if (isCol(h, ['ESTATUS','STATUS'])) { w = '65px'; fs = '10px'; pad = '8px 1px'; }
-          else if (up.includes('FECHA') || up.includes('RESPUESTA')) { w = '65px'; fs = '10px'; } /* Achicando Fecha */
-          else if (up === 'F2') { w = '35px'; fs = '10px'; align='center'; } /* Achicando F2 */
-          else if (up.includes('COTIZACION') || up.includes('COT')) { w = '70px'; fs = '10px'; align='center'; } /* Achicando Cotizacion */
-          else if (up.includes('TIMEOUT') || up.includes('TIME OUT')) { w = '70px'; fs = '10px'; align='center'; } /* Achicando Timeout */
-          else if (up.includes('LAYOUT') || up.includes('TIMELINE')) { w = '70px'; fs = '10px'; align='center'; } /* Achicando Layout/Timeline */
-          else if (up.includes('VENDEDOR')) { w = '50px'; fs = '10px'; align='center'; } /* Vendedor Reducido y Centrado */
-          else if (up === 'CLIENTE') w = '200px';
+          else if (up.includes('FECHA') || up.includes('RESPUESTA')) { w = '65px'; fs = '10px'; } 
+          else if (up === 'F2') { w = '35px'; fs = '10px'; align='center'; } 
+          else if (up.includes('COTIZACION') || up.includes('COT')) { w = '70px'; fs = '10px'; align='center'; } 
+          else if (up.includes('TIMEOUT') || up.includes('TIME OUT')) { w = '70px'; fs = '10px'; align='center'; } 
+          else if (up.includes('LAYOUT') || up.includes('TIMELINE')) { w = '70px'; fs = '10px'; align='center'; } 
+          else if (up.includes('VENDEDOR')) { w = '50px'; fs = '10px'; align='center'; } 
+          else if (up === 'CLIENTE') w = '100px';
           return { width: w, fontSize: fs, padding: pad, textAlign: align, overflow: 'hidden', textOverflow: 'ellipsis' };
       };
       
@@ -936,7 +964,7 @@
       const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
       
       return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData, projectCards, activeProjectsList, projectSubFolders, openFolderContent, toggleExpand, showPpcSelectorModal, openPpcProjectSelector, ppcMode, selectPpcProject, createNewProject, newProject, currentPpcProject, loadCascadeTree, showSubProjectModal, currentTargetSite, newSubProject, openAddSubProject, createSubProject, openProjectTask, projectTasks, refreshProjectTasks, addNewProjectTask, saveProjectRow, 
-      ecgData, loadEcgData, renderEcgCharts, toInitials };
+      ecgData, loadEcgData, renderEcgCharts, toInitials, showPassword, availableSpecialties, filterSpecialty, filterCompliance };
     }
   });
   app.config.errorHandler = (err) => { console.error(err); Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
