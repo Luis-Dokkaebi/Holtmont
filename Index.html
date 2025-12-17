@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Holtmont V162 - Solución ID Único</title>
+  <title>Holtmont V163 - KPIs & ID Único</title>
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -55,6 +55,12 @@
     .mini-table th { padding: 5px 6px; font-size: 11px; height: auto; line-height: 1.2; border: 1px solid #999; text-align: center; white-space: nowrap; background-color: #e6e6e6; }
     .mini-table td { height: auto; font-size: 11px; padding: 4px 6px; line-height: 1.2; border: 1px solid #ccc; }
     .mini-table .total-row td { background-color: #333; color: white; font-weight: bold; border-top: 2px solid #555 !important; }
+
+    /* KPI CARD */
+    .kpi-card-wrapper { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; }
+    .kpi-stat-item { padding: 10px; border-radius: 8px; background: #f8f9fa; margin-bottom: 10px; border-left: 4px solid var(--accent); }
+    .kpi-stat-value { font-size: 1.5rem; font-weight: bold; color: #333; }
+    .kpi-stat-label { font-size: 0.8rem; color: #666; text-transform: uppercase; }
 
     /* DYNAMIC TRACKER FORM */
     .dynamic-tracker { background-color: #f4f6f8 !important; color: #333; flex:1; display:flex; flex-direction:column; padding:0 !important; overflow-y:auto; }
@@ -179,6 +185,11 @@
             <div class="nav-icon-col"><i class="fas fa-project-diagram"></i></div>
             <span class="nav-text">Proyectos</span>
         </div>
+
+        <div class="nav-item" :class="{ active: currentView === 'KPI_VIEW' }" @click="openKpiView">
+            <div class="nav-icon-col"><i class="fas fa-chart-line" style="color:#fd7e14"></i></div>
+            <span class="nav-text">KPI Rendimiento</span>
+        </div>
         
         <div v-if="config.specialModules.length">
             <div class="section-title">ACCIONES</div>
@@ -230,6 +241,51 @@
           </div>
         </div>
 
+        <div v-if="currentView === 'KPI_VIEW'" class="h-100 d-flex flex-column animate__animated animate__fadeIn">
+             <div class="d-flex justify-content-between align-items-center mb-4">
+                 <div class="d-flex align-items-center">
+                     <h4 class="fw-bold text-secondary m-0"><i class="fas fa-stopwatch me-2 text-warning"></i>TIEMPO PROMEDIO DE RESPUESTA</h4>
+                 </div>
+                 <div>
+                      <div class="btn-group" role="group">
+                          <button type="button" class="btn btn-sm fw-bold" :class="kpiGroup === 'VENDEDORES' ? 'btn-primary' : 'btn-outline-primary'" @click="setKpiGroup('VENDEDORES')">VENDEDORES</button>
+                          <button type="button" class="btn btn-sm fw-bold" :class="kpiGroup === 'TRACKER' ? 'btn-primary' : 'btn-outline-primary'" @click="setKpiGroup('TRACKER')">STAFF TRACKER</button>
+                      </div>
+                      <button class="btn btn-outline-secondary btn-sm ms-2" @click="goHome">Cerrar</button>
+                 </div>
+             </div>
+
+             <div class="row g-4 flex-fill overflow-auto">
+                 <div class="col-lg-8">
+                     <div class="kpi-card-wrapper">
+                         <h6 class="text-muted fw-bold mb-3 border-bottom pb-2">GRÁFICA DE RENDIMIENTO (Días)</h6>
+                         <div style="flex:1; position: relative;">
+                             <canvas id="kpiChartCanvas"></canvas>
+                         </div>
+                     </div>
+                 </div>
+                 <div class="col-lg-4">
+                     <div class="kpi-card-wrapper">
+                         <h6 class="text-muted fw-bold mb-3 border-bottom pb-2">DETALLES POR PERSONA</h6>
+                         <div v-if="kpiLoading" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Analizando datos...</div>
+                         <div v-else class="overflow-auto pe-2">
+                             <div v-for="(stat, idx) in kpiStats" :key="idx" class="kpi-stat-item">
+                                 <div class="d-flex justify-content-between align-items-center">
+                                     <div>
+                                         <div class="fw-bold">{{ stat.name }}</div>
+                                         <div class="small text-muted">{{ stat.count }} tareas analizadas</div>
+                                     </div>
+                                     <div class="text-end">
+                                         <div class="kpi-stat-value" :class="stat.avgDays > 10 ? 'text-danger' : (stat.avgDays > 5 ? 'text-warning' : 'text-success')">{{ stat.avgDays }}</div>
+                                         <div class="kpi-stat-label">DÍAS PROM.</div>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        </div>
         <div v-if="currentView === 'ECG_VIEW'" class="h-100 d-flex flex-column" style="background-color:#000; margin:-20px; padding:20px;">
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary pb-2">
                 <div class="d-flex align-items-center">
@@ -642,7 +698,7 @@
       const staffTracker = ref({ name: '', data: [], history: [], headers: [], isLoading: false, previousView: 'DEPT' });
       const weeklyPlanData = ref({ headers: [], data: [], isLoading: false }); 
       const searchQuery = ref(''); const isCompact = ref(false); 
-      const showPassword = ref(false); // NUEVA VARIABLE PARA TOGGLE PASSWORD
+      const showPassword = ref(false); 
       
       const ppcData = ref({ cumplimiento: 'NO', cliente: '', comentarios:'', comentariosPrevios:'' }); 
       const isSubmitting = ref(false);
@@ -659,10 +715,18 @@
 
       const selectedWeek = ref(''); 
       const currentModuleId = ref('');
-      
-      // NUEVOS FILTROS PPC SEMANAL
       const filterSpecialty = ref('');
       const filterCompliance = ref('');
+
+      // KPI STATE
+      const kpiGroup = ref('VENDEDORES'); 
+      const kpiLoading = ref(false);
+      const kpiStats = ref([]);
+      const kpiChartInstance = ref(null);
+
+      // LISTAS PREDEFINIDAS
+      const GROUP_VENDEDORES = ["RAMIRO RODRIGUEZ", "EDUARDO MANZANARES", "SEBASTIAN PADILLA"];
+      const GROUP_TRACKER = ["JUDITH ECHAVARRIA", "EDUARDO TERAN", "ANGEL SALINAS"];
 
       // ECG (Electrocardiograma) STATE
       const ecgData = ref({});
@@ -681,7 +745,6 @@
       const currentTargetSite = ref({});
       const newSubProject = ref({ name: '', type: 'OBRA CIVIL', createdBy: '' });
       
-      // *** MODIFICADO: ESTRUCTURA DE CARPETAS CON NUEVOS PPCs ***
       const projectSubFolders = ref([
           { name: "PPC INTERNO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, 
           { name: "PPC PREOPERATIVO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" },
@@ -697,10 +760,8 @@
 
       const toggleExpand = (item) => { item.expanded = !item.expanded; };
       
-      // *** MODIFICADO: ABRIR CONTENIDO CON ETIQUETADO DINÁMICO ***
       const openFolderContent = (folder, projectName) => {
           if (folder.name.includes("PPC")) {
-             // ETIQUETA DINÁMICA: "NAVE PPC INTERNO", "AMPLIACION PPC CLIENTE", etc.
              const compoundName = `${projectName} ${folder.name}`;
              currentPpcProject.value = { name: compoundName }; 
              currentView.value = 'PROJECT_TASKS_VIEW';
@@ -776,7 +837,6 @@
       };
       const openProjectTask = (sub) => { currentPpcProject.value = sub; openModule({ id: "PPC_DINAMICO", type: "ppc_dynamic_view" }); };
 
-      // --- LOGICA GENERAL Y COMPUTED ---
       const salesStaff = computed(() => (config.value.directory || []).filter(p => p.dept === 'VENTAS' && p.name !== 'ANTONIA_VENTAS').map(p => p.name));
       const filteredStaff = computed(() => config.value.staff.filter(p => p.dept === currentDept.value && p.name.toLowerCase().includes(searchQuery.value.toLowerCase())));
       const filteredDirectory = computed(() => (config.value.directory || config.value.staff).filter(p => p.name.toLowerCase().includes(staffSearch.value.toLowerCase()) && !selectedResponsables.value.includes(p.name)).slice(0,5));
@@ -860,7 +920,6 @@
 
       const toInitials = (name) => {
         if (!name) return '';
-        // Convierte "Judith Echavarria" en "JE", o "Maria Del Carmen" en "MC"
         return String(name).trim().split(/\s+/).map(p => p[0]).join('').toUpperCase().substring(0, 3);
       };
 
@@ -876,7 +935,6 @@
       const loadWeeklyPlan = () => { weeklyPlanData.value.isLoading = true; google.script.run.withSuccessHandler(res => { weeklyPlanData.value.isLoading = false; if(res.success){ weeklyPlanData.value.headers = res.headers; weeklyPlanData.value.data = res.data; selectedWeek.value = ''; } else Swal.fire('Error', res.message, 'error'); }).apiFetchWeeklyPlanData(); };
       const savePPCV3Row = (row) => { const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 }); Toast.fire({ icon: 'info', title: 'Guardando...' }); google.script.run.withSuccessHandler(res => { if(res.success) Toast.fire({ icon: 'success', title: 'Actualizado' }); else Swal.fire('Error', res.message, 'error'); }).apiUpdatePPCV3(JSON.parse(JSON.stringify(row))); };
 
-      // ECG LOGIC
       const loadEcgData = () => {
           if(currentView.value !== 'ECG_VIEW') return;
           Swal.showLoading();
@@ -896,59 +954,14 @@
               const canvasId = 'chart-' + personName.replace(/\s+/g, '');
               const ctx = document.getElementById(canvasId);
               if (!ctx) return;
-
-              if (ecgChartInstances[personName]) {
-                  ecgChartInstances[personName].destroy();
-              }
-
+              if (ecgChartInstances[personName]) { ecgChartInstances[personName].destroy(); }
               const dataPoints = ecgData.value[personName];
               const labels = dataPoints.map(d => d.displayDate);
               const values = dataPoints.map(d => d.pulse);
-              
               let borderColor = '#00ff00';
               if(personName.includes("SEBASTIAN")) borderColor = '#00ccff';
               if(personName.includes("EDUARDO")) borderColor = '#ff9900';
-
-              ecgChartInstances[personName] = new Chart(ctx, {
-                  type: 'line',
-                  data: {
-                      labels: labels,
-                      datasets: [{
-                          label: 'Señal de Ventas',
-                          data: values,
-                          borderColor: borderColor,
-                          borderWidth: 2,
-                          tension: 0.1, 
-                          pointRadius: 3,
-                          pointBackgroundColor: '#fff'
-                      }]
-                  },
-                  options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: {
-                          x: { display: false }, 
-                          y: { 
-                              display: true, 
-                              grid: { color: '#222' },
-                              ticks: { color: '#555', callback: (v) => v > 5 ? 'VENDIDA' : (v < 0 ? 'PERDIDA' : '') }
-                          }
-                      },
-                      plugins: {
-                          legend: { display: false },
-                          tooltip: {
-                              callbacks: {
-                                  label: (ctx) => {
-                                      const idx = ctx.dataIndex;
-                                      const item = dataPoints[idx];
-                                      return `${item.status}: ${item.desc} (${item.client})`;
-                                  }
-                              }
-                          }
-                      },
-                      animation: { duration: 1500, easing: 'easeOutQuart' }
-                  }
-              });
+              ecgChartInstances[personName] = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Señal de Ventas', data: values, borderColor: borderColor, borderWidth: 2, tension: 0.1, pointRadius: 3, pointBackgroundColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: true, grid: { color: '#222' }, ticks: { color: '#555', callback: (v) => v > 5 ? 'VENDIDA' : (v < 0 ? 'PERDIDA' : '') } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => { const idx = ctx.dataIndex; const item = dataPoints[idx]; return `${item.status}: ${item.desc} (${item.client})`; } } } }, animation: { duration: 1500, easing: 'easeOutQuart' } } });
           });
       };
 
@@ -958,28 +971,19 @@
           else if(m.type==='ppc_native') { currentView.value='PPC_FORM'; google.script.run.withSuccessHandler(res => { if(res.success) ppcExistingData.value = res.data; }).apiFetchPPCData(); }
           else if(m.type==='ppc_dynamic_view') { currentView.value='PPC_DINAMICO'; dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; }
           else if(m.type==='weekly_plan_view') { currentView.value='WEEKLY_PLAN'; loadWeeklyPlan(); }
-          else if(m.type === 'ecg_dashboard') {
-              currentView.value = 'ECG_VIEW';
-              loadEcgData();
-          }
+          else if(m.type === 'ecg_dashboard') { currentView.value = 'ECG_VIEW'; loadEcgData(); }
       };
       
       const closeIframe = () => currentView.value='DASHBOARD';
       const openStaffTracker = (p) => { staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true; google.script.run.withSuccessHandler(res => { staffTracker.value.isLoading=false; if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name); };
       const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
       
-      // *** MODIFICADO: GENERACIÓN AUTOMÁTICA DE ID ALFANUMÉRICO ***
       const addNewRow = () => { 
           if(!staffTracker.value.headers.length) return; 
           const row={_isNew:true}; 
           staffTracker.value.headers.forEach(h => {
               const hUpper = String(h).toUpperCase().trim();
-              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) {
-                  // Generamos ID: "VEN-839201" (Ventas)
-                  row[h] = "VEN-" + Math.floor(Math.random() * 1000000); 
-              } else {
-                  row[h] = "";
-              }
+              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Math.floor(Math.random() * 1000000); } else { row[h] = ""; }
           }); 
           staffTracker.value.data.unshift(row); 
       };
@@ -1000,8 +1004,113 @@
       const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
       const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
       
+      // --- LOGICA DE KPIS ---
+      const openKpiView = () => { currentView.value = 'KPI_VIEW'; loadKpiData(); };
+      const setKpiGroup = (g) => { kpiGroup.value = g; loadKpiData(); };
+
+      const parseDateSmart = (val) => {
+          if (!val) return null;
+          if (val instanceof Date) return val;
+          const s = String(val).trim();
+          // DD/MM/YY or DD/MM/YYYY
+          if (s.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) {
+              const parts = s.split('/');
+              let y = parts[2];
+              if (y.length === 2) y = '20' + y;
+              return new Date(`${y}-${parts[1]}-${parts[0]}`);
+          }
+          // YYYY-MM-DD
+          if (s.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              return new Date(s);
+          }
+          return null;
+      };
+
+      const loadKpiData = () => {
+          kpiLoading.value = true;
+          const people = kpiGroup.value === 'VENDEDORES' ? GROUP_VENDEDORES : GROUP_TRACKER;
+          const promises = people.map(name => {
+              return new Promise((resolve) => {
+                  google.script.run.withSuccessHandler(res => {
+                      resolve({ name: name, res: res });
+                  }).withFailureHandler(() => resolve({ name: name, res: { success: false } })).apiFetchStaffTrackerData(name);
+              });
+          });
+
+          Promise.all(promises).then(results => {
+              kpiLoading.value = false;
+              kpiStats.value = [];
+              const chartLabels = [];
+              const chartData = [];
+
+              results.forEach(item => {
+                  if (item.res.success) {
+                      const history = item.res.history || [];
+                      let totalDays = 0;
+                      let count = 0;
+
+                      history.forEach(row => {
+                          // BUSCAR FECHA INICIO
+                          const keyStart = Object.keys(row).find(k => k.toUpperCase().includes('FECHA') && !k.toUpperCase().includes('FIN') && !k.toUpperCase().includes('ENTREGA') && !k.toUpperCase().includes('RESPUESTA'));
+                          // BUSCAR FECHA FIN (Usamos Entrega, Respuesta o Fin)
+                          const keyEnd = Object.keys(row).find(k => k.toUpperCase().includes('ENTREGA') || k.toUpperCase().includes('RESPUESTA') || k.toUpperCase().includes('FIN'));
+                          
+                          if (keyStart && keyEnd) {
+                              const dStart = parseDateSmart(row[keyStart]);
+                              const dEnd = parseDateSmart(row[keyEnd]);
+                              
+                              if (dStart && dEnd && !isNaN(dStart) && !isNaN(dEnd)) {
+                                  // Diferencia en días
+                                  const diffTime = Math.abs(dEnd - dStart);
+                                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                                  // Filtramos locuras (ej > 365 dias o < 0)
+                                  if (diffDays >= 0 && diffDays < 365) {
+                                      totalDays += diffDays;
+                                      count++;
+                                  }
+                              }
+                          }
+                      });
+
+                      const avg = count > 0 ? (totalDays / count).toFixed(1) : 0;
+                      kpiStats.value.push({ name: item.name, count: count, avgDays: avg });
+                      chartLabels.push(toInitials(item.name));
+                      chartData.push(avg);
+                  }
+              });
+
+              renderKpiChart(chartLabels, chartData);
+          });
+      };
+
+      const renderKpiChart = (labels, data) => {
+          const ctx = document.getElementById('kpiChartCanvas');
+          if (!ctx) return;
+          if (kpiChartInstance.value) kpiChartInstance.value.destroy();
+          
+          kpiChartInstance.value = new Chart(ctx, {
+              type: 'bar',
+              data: {
+                  labels: labels,
+                  datasets: [{
+                      label: 'Días Promedio',
+                      data: data,
+                      backgroundColor: data.map(v => v > 10 ? '#dc3545' : (v > 5 ? '#ffc107' : '#198754')),
+                      borderRadius: 4
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: { y: { beginAtZero: true, title: { display: true, text: 'Días' } } }
+              }
+          });
+      };
+
       return { isLoggedIn, loginPass, loginUser, loggingIn, doLogin, logout, currentUser, currentView, config, staffTracker, weeklyPlanData, searchQuery, goHome, selectDept, openStaffTracker, reloadStaffTracker, goBackToDept, saveRow, addNewRow, openModule, filteredStaff, getTrafficStyle, ppcData, isSubmitting, selectedResponsables, staffSearch, filteredDirectory, addResponsable, promptExtraData, confirmAddToQueue, activityQueue, submitBatch, clearQueue, pageTitle, openFileDialog, handleFileSelect, fileInput, isUploadingFile, uploadSuccess, closeIframe, showExtraModal, extraData, priorityOpts, riskOpts, salesStaff, cellFileInput, openCellUpload, handleCellFile, toIsoDate, updateDateFromPicker, formatDisplayDate, isMediaColumn, getColumnStyle, getHeaderLabel, isCol, deptStats, currentDeptData, currentModuleId, currentDept, ppcExistingData, dynamicPpc, saveDynamicPPC, getFechaRespuestaStyle, syncQueueToBackend, isCompact, toggleSidebar, loadWeeklyPlan, weeklyStats, savePPCV3Row, selectedWeek, availableWeeks, filteredWeeklyData, projectCards, activeProjectsList, projectSubFolders, openFolderContent, toggleExpand, showPpcSelectorModal, openPpcProjectSelector, ppcMode, selectPpcProject, createNewProject, newProject, currentPpcProject, loadCascadeTree, showSubProjectModal, currentTargetSite, newSubProject, openAddSubProject, createSubProject, openProjectTask, projectTasks, refreshProjectTasks, addNewProjectTask, saveProjectRow, 
-      ecgData, loadEcgData, renderEcgCharts, toInitials, showPassword, availableSpecialties, filterSpecialty, filterCompliance };
+      ecgData, loadEcgData, renderEcgCharts, toInitials, showPassword, availableSpecialties, filterSpecialty, filterCompliance, 
+      openKpiView, kpiGroup, kpiStats, kpiLoading, setKpiGroup }; // EXPORTAR NUEVOS METODOS
     }
   });
   app.config.errorHandler = (err) => { console.error(err); Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
