@@ -667,8 +667,12 @@
       const showSubProjectModal = ref(false);
       const currentTargetSite = ref({});
       const newSubProject = ref({ name: '', type: 'OBRA CIVIL', createdBy: '' });
+      
+      // *** MODIFICADO: ESTRUCTURA DE CARPETAS CON NUEVOS PPCs ***
       const projectSubFolders = ref([
-          { name: "PPC PROYECTO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, 
+          { name: "PPC INTERNO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" }, 
+          { name: "PPC PREOPERATIVO", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" },
+          { name: "PPC CLIENTE", icon: "fa-tasks", color: "#fd7e14", bg: "#fff4de" },
           { name: "DOCUMENTOS", icon: "fa-file-alt", color: "#3699ff", bg: "#e1f0ff" },
           { name: "PLANOS Y DISEÑOS", icon: "fa-drafting-compass", color: "#6610f2", bg: "#eee5ff" },
           { name: "FOTOGRAFIAS", icon: "fa-images", color: "#e83e8c", bg: "#ffe2e5" },
@@ -679,11 +683,15 @@
       const projectTasks = ref({ data: [], headers: [], isLoading: false });
 
       const toggleExpand = (item) => { item.expanded = !item.expanded; };
+      
+      // *** MODIFICADO: ABRIR CONTENIDO CON ETIQUETADO DINÁMICO ***
       const openFolderContent = (folder, projectName) => {
-          if (folder.name === "PPC PROYECTO") {
-             currentPpcProject.value = { name: projectName }; 
+          if (folder.name.includes("PPC")) {
+             // ETIQUETA DINÁMICA: "NAVE PPC INTERNO", "AMPLIACION PPC CLIENTE", etc.
+             const compoundName = `${projectName} ${folder.name}`;
+             currentPpcProject.value = { name: compoundName }; 
              currentView.value = 'PROJECT_TASKS_VIEW';
-             loadProjectTasks(projectName);
+             loadProjectTasks(compoundName);
           } else {
              Swal.fire({ title: `${folder.name} (${projectName})`, text: 'Carpeta vacía por el momento.', icon: 'info', iconColor: folder.color, confirmButtonColor: folder.color });
           }
