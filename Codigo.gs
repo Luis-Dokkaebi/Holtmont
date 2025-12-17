@@ -291,7 +291,12 @@ function internalFetchSheetData(sheetName) {
            }
         } else if (typeof val === 'string') {
            if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) {
+               let parts = val.split('-');
+               // Create date at noon to avoid DST/timezone shifts issues when formatting just the date
+               let d = new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0);
+               val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+           }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -698,7 +703,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -829,7 +834,14 @@ function apiFetchWeeklyPlanData() {
         if (String(fechaVal).includes("/")) {
           const parts = String(fechaVal).split("/"); 
           if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]);
-        } else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
+        } else if (fechaVal instanceof Date) {
+            dateObj = fechaVal;
+        } else if (String(fechaVal).match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const parts = String(fechaVal).split('-');
+            dateObj = new Date(parts[0], parts[1]-1, parts[2]);
+        } else {
+            dateObj = new Date(fechaVal);
+        }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
       rowObj["SEMANA"] = semanaNum;
@@ -871,7 +883,7 @@ function apiSaveSite(siteData) {
          }
       }
 
-      const id = "SITE-" + new Date().getTime();
+      const id = "SITE-" + Utilities.getUuid();
       sheet.appendRow([
         id,
         cleanName,
@@ -921,7 +933,7 @@ function apiSaveSubProject(subProjectData) {
           }
       }
 
-      const id = "PROJ-" + new Date().getTime();
+      const id = "PROJ-" + Utilities.getUuid();
       sheet.appendRow([
         id,
         subProjectData.parentId,
@@ -1126,7 +1138,7 @@ function cmdRealizarAlta() {
   }
 
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) {
       sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]);
