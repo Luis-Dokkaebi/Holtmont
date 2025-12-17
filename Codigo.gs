@@ -2,6 +2,7 @@
  * ======================================================================
  * HOLTMONT WORKSPACE V158 - SCRIPTMASTER EDITION
  * Backend: Lógica optimizada con detección de Especialidad para Filtros
+ * Actualización: Soporte para Múltiples PPC (Interno, Preoperativo, Cliente)
  * ======================================================================
  */
 
@@ -15,6 +16,23 @@ const APP_CONFIG = {
   salesSheetName: "Datos",        
   logSheetName: "LOG_SISTEMA"
 };
+
+// --- ESTRUCTURA ESTÁNDAR DE PROYECTOS (MODIFICADO) ---
+// Aquí definimos los sub-proyectos automáticos.
+// Se eliminó "PPC PROYECTO" y se agregaron los 3 específicos.
+// Se conservan DOCUMENTOS, PLANOS, FOTOGRAFIAS, etc.
+const STANDARD_PROJECT_STRUCTURE = [
+  "NAVE",
+  "AMPLIACION",
+  "PPC INTERNO",      // NUEVO
+  "PPC PREOPERATIVO", // NUEVO
+  "PPC CLIENTE",      // NUEVO
+  "DOCUMENTOS",       // PRESERVADO
+  "PLANOS Y DISEÑOS", // PRESERVADO
+  "FOTOGRAFIAS",      // PRESERVADO
+  "CORRESPONDENCIA",  // PRESERVADO
+  "REPORTES"          // PRESERVADO
+];
 
 // USUARIOS
 const USER_DB = {
@@ -164,7 +182,7 @@ function getSystemConfig(role) {
   const ppcModuleMaster = { id: "PPC_MASTER", label: "PPC Maestro", icon: "fa-tasks", color: "#fd7e14", type: "ppc_native" };
   const ppcModuleWeekly = { id: "WEEKLY_PLAN", label: "Planeación Semanal", icon: "fa-calendar-alt", color: "#6f42c1", type: "weekly_plan_view" };
   const ecgModule = { id: "ECG_SALES", label: "Monitor Vivos", icon: "fa-heartbeat", color: "#d63384", type: "ecg_dashboard" };
-
+  
   if (role === 'TONITA') return { 
       departments: { "VENTAS": allDepts["VENTAS"] }, 
       allDepartments: allDepts, 
@@ -173,7 +191,7 @@ function getSystemConfig(role) {
       specialModules: [ ppcModuleMaster, ecgModule ],
       accessProjects: false 
   };
-
+  
   if (role === 'ANGEL_USER') {
     return {
       departments: { "DISEÑO": allDepts["DISEÑO"], "VENTAS": allDepts["VENTAS"] },
@@ -228,7 +246,7 @@ function getSystemConfig(role) {
       specialModules: ppcModules,
       accessProjects: true 
   };
-
+  
   if (role === 'ADMIN_CONTROL') {
     return {
       departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
@@ -259,24 +277,20 @@ function internalFetchSheetData(sheetName) {
     if (values.length < 2) return { success: true, data: [], history: [], headers: [], message: "Vacía" };
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
-    
     const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
     const validIndices = [];
     const cleanHeaders = [];
     rawHeaders.forEach((h, index) => {
       if(h !== "") { validIndices.push(index); cleanHeaders.push(h); }
     });
-    
     const dataRows = values.slice(headerRowIndex + 1);
     const activeTasks = [];
     const historyTasks = [];
     let isReadingHistory = false;
-    
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
-      
       let rowObj = {};
       let hasData = false;
       let sortDate = null;
@@ -296,7 +310,6 @@ function internalFetchSheetData(sheetName) {
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
       });
-      
       if (hasData) {
         rowObj['_sortDate'] = sortDate;
         rowObj['_rowIndex'] = headerRowIndex + i + 2;
@@ -309,7 +322,6 @@ function internalFetchSheetData(sheetName) {
       const dB = b['_sortDate'] instanceof Date ? b['_sortDate'].getTime() : 0;
       return dB - dA;
     };
-
     return { 
       success: true, 
       data: activeTasks.sort(dateSorter).map(({_sortDate, ...rest}) => rest), 
@@ -327,7 +339,6 @@ function apiFetchSalesHistory() {
   try {
     const dataRes = internalFetchSheetData(APP_CONFIG.salesSheetName);
     if (!dataRes.success) return dataRes;
-    
     const allData = [...dataRes.data, ...dataRes.history];
     const grouped = {};
     
@@ -387,7 +398,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: false, message: "Sin cabeceras válidas" };
-    
     // 1. SANITIZAR HEADERS Y ELIMINAR FILTROS ROTOS (FIX CRÍTICO)
     let headersChanged = false;
     for(let c = 0; c < values[headerRowIndex].length; c++) {
@@ -412,7 +422,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
 
     const colMap = {};
     headers.forEach((h, i) => colMap[h] = i);
-    
     const getColIdx = (key) => {
       const k = key.toUpperCase().trim();
       if (colMap[k] !== undefined) return colMap[k];
@@ -428,7 +437,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         'FECHA_RESPUESTA': ['FECHA RESPUESTA', 'FECHA FIN', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA', 'FECHA DE ENTREGA'],
         'PRIORIDAD': ['PRIORIDAD', 'PRIORIDADES'],
         'RIESGOS': ['RIESGO', 'RIESGOS'],
-        'ARCHIVO': ['ARCHIVO', 'ARCHIVOS', 'CLIP', 'LINK'], // SE ELIMINÓ REQUISITOR DE AQUÍ
+        'ARCHIVO': ['ARCHIVO', 'ARCHIVOS', 'CLIP', 'LINK'],
         'CLASIFICACION': ['CLASIFICACION', 'CLASI'],
         'COMENTARIOS': ['COMENTARIOS', 'OBSERVACIONES', 'COMENTARIOS SEMANA EN CURSO', 'NOTAS'],
         'PREVIOS': ['COMENTARIOS PREVIOS', 'PREVIOS', 'COMENTARIOS SEMANA PREVIA']
@@ -440,7 +449,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
       return -1;
     };
-    
     const folioIdx = getColIdx('FOLIO') > -1 ? getColIdx('FOLIO') : getColIdx('ID');
     let rowsToAppend = [];
     let singleRowIndex = -1;
@@ -486,7 +494,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
           rowsToAppend.push(newRow);
       }
     });
-
     // 3. AUTO-ARCHIVADO
     let rowsMoved = false;
     const avanceIdx = getColIdx('AVANCE');
@@ -504,7 +511,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         let activeRows = [];
         let separatorRow = [];
         let historyRows = [];
-        
         if (separatorIndex === -1) {
             activeRows = values.slice(headerRowIndex + 1);
         } else {
@@ -526,7 +532,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
                 newActiveRows.push(row);
             }
         });
-
         if (rowsMoved || (rowsToAppend.length > 0 && separatorIndex === -1)) {
             if (separatorRow.length === 0) {
                 const sep = new Array(totalColumns).fill("");
@@ -549,7 +554,6 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            const diff = finalMaxCols - r.length;
            return r.concat(new Array(diff).fill(""));
        });
-       
        if (tasksArray.length === 1 && singleRowIndex > -1 && !rowsMoved) {
           let singleRow = values[singleRowIndex];
           if(singleRow.length < finalMaxCols) {
@@ -660,7 +664,8 @@ function apiSyncDrafts(drafts) {
         sheet.appendRow(headers);
       }
       return { success: true };
-    } catch(e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
+    } catch(e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock();
+    }
   }
   return { success: false, message: "Ocupado syncing drafts" };
 }
@@ -696,7 +701,6 @@ function apiSavePPCData(payload) {
           if (!tasksBySheet[key]) tasksBySheet[key] = [];
           tasksBySheet[key].push(task);
       };
-
       items.forEach(item => {
           const id = "PPC-" + Math.floor(Math.random() * 100000);
           rowsForPPC.push([
@@ -705,7 +709,7 @@ function apiSavePPCData(payload) {
           ]);
 
           const taskData = {
-                  'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
+                 'FOLIO': id, 'CONCEPTO': item.concepto, 'CLASIFICACION': item.clasificacion || "Media", 
                  'ALTA': item.especialidad, 'INVOLUCRADOS': item.responsable, 'FECHA': fechaStr,
                  'RELOJ': item.horas, 'ESTATUS': "ASIGNADO", 'PRIORIDAD': item.prioridad || item.prioridades, 
                  'RESTRICCIONES': item.restricciones, 'RIESGOS': item.riesgos, 'FECHA_RESPUESTA': item.fechaRespuesta, 'AVANCE': "0%",
@@ -717,7 +721,6 @@ function apiSavePPCData(payload) {
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
           responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
-
       if (rowsForPPC.length > 0) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
@@ -740,13 +743,16 @@ function uploadFileToDrive(data, type, name) {
   try {
     const folderId = APP_CONFIG.folderIdUploads;
     let folder;
-    if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder(); } } 
-    else { folder = DriveApp.getRootFolder(); }
+    if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder();
+    } } 
+    else { folder = DriveApp.getRootFolder();
+    }
     const blob = Utilities.newBlob(Utilities.base64Decode(data.split(',')[1]), type, name);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return { success: true, fileUrl: file.getUrl() };
-  } catch (e) { return { success: false, message: e.toString() }; }
+  } catch (e) { return { success: false, message: e.toString() };
+  }
 }
 
 function apiFetchPPCData() { 
@@ -800,9 +806,7 @@ function apiFetchWeeklyPlanData() {
     
     const mappedHeaders = originalHeaders.map(h => {
         const up = h.toUpperCase();
-        // Mapeo explicito para filtros de Frontend
         if (up.includes("ESPECIALIDAD") || up.includes("AREA") || up.includes("DEPARTAMENTO")) return "ESPECIALIDAD";
-        
         if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
         if (up.includes("INVOLUCRADOS") || up.includes("RESPONSABLE")) return "RESPONSABLE";
         if (up.includes("ALTA") || up.includes("FECHA")) return "FECHA";
@@ -882,7 +886,11 @@ function apiSaveSite(siteData) {
         siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO"
       ]);
       SpreadsheetApp.flush(); 
-      return { success: true, id: id, message: "Sitio creado correctamente." };
+
+      // AUTOMATIZACIÓN: CREAR ESTRUCTURA ESTÁNDAR AUTOMÁTICAMENTE
+      apiCreateStandardStructure(id, siteData.createdBy);
+
+      return { success: true, id: id, message: "Sitio creado correctamente con estructura PPC completa." };
     } catch (e) {
       return { success: false, message: e.toString() };
     } finally {
@@ -921,7 +929,7 @@ function apiSaveSubProject(subProjectData) {
           }
       }
 
-      const id = "PROJ-" + new Date().getTime();
+      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
       sheet.appendRow([
         id,
         subProjectData.parentId,
@@ -1001,12 +1009,17 @@ function apiFetchCascadeTree() {
              const parentId = String(row[colMap.parentId]).trim();
              const parent = sites.find(s => String(s.id).trim() === parentId);
              if (parent) {
+               // CAMBIO: Si es PPC, asignamos el icono correcto
+               const pName = String(row[colMap.name]).trim().toUpperCase();
+               let icon = "fa-clipboard-list";
+               if (pName.includes("PPC")) icon = "fa-tasks";
+
                parent.subProjects.push({
                  id: row[0],
                  name: String(row[colMap.name]).trim(),
                  type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL",
                  status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO",
-                 icon: "fa-clipboard-list"
+                 icon: icon
                });
              }
           }
@@ -1041,7 +1054,6 @@ function apiFetchProjectTasks(projectName) {
     };
     if (colIdx.concepto === -1) colIdx.concepto = headers.findIndex(h => h.includes("CONCEPTO") || h.includes("DESCRIPCI"));
     if (colIdx.comentarios === -1) colIdx.comentarios = headers.findIndex(h => h.includes("COMENTARIOS"));
-    
     const dataRows = values.slice(headerRowIdx + 1);
     const filteredTasks = [];
     for (let i = 0; i < dataRows.length; i++) {
@@ -1067,13 +1079,19 @@ function apiFetchProjectTasks(projectName) {
   }
 }
 
+// *** MODIFICADO PARA INCLUIR ETIQUETAS DE LOS NUEVOS PPCs ***
 function apiSaveProjectTask(taskData, projectName) {
     try {
-        const tag = `[PROY: ${String(projectName).toUpperCase().trim()}]`;
+        const nameUpper = String(projectName).toUpperCase().trim();
+        const tag = `[PROY: ${nameUpper}]`;
+        
         let coms = taskData['COMENTARIOS'] || "";
+        
+        // Verificamos si ya tiene la etiqueta para no duplicar
         if (!String(coms).toUpperCase().includes(tag)) {
             taskData['COMENTARIOS'] = (coms + " " + tag).trim();
         }
+        
         return internalBatchUpdateTasks("ADMINISTRADOR", [taskData]);
     } catch (e) {
         return { success: false, message: e.toString() };
@@ -1115,11 +1133,9 @@ function cmdRealizarAlta() {
   const headers = values[headerIdx].map(h => String(h).toUpperCase().trim());
   const rowData = values[row - 1];
   const taskObj = {};
-  
   headers.forEach((h, i) => {
     if (h) taskObj[h] = rowData[i];
   });
-
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) {
     ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN.");
     return;
@@ -1137,7 +1153,6 @@ function cmdRealizarAlta() {
   
   const currentSheetName = sheet.getName();
   taskObj['ESTATUS'] = taskObj['ESTATUS'] || 'ASIGNADO';
-  
   const involucrados = taskObj["INVOLUCRADOS"] || taskObj["RESPONSABLE"] || "";
   const listaInv = String(involucrados).split(",").map(s => s.trim()).filter(s => s);
   
@@ -1145,7 +1160,6 @@ function cmdRealizarAlta() {
   listaInv.forEach(nombre => {
     internalBatchUpdateTasks(nombre, [taskObj]);
   });
-  
   if (currentSheetName !== "ADMINISTRADOR" && !listaInv.includes(currentSheetName)) {
     internalBatchUpdateTasks(currentSheetName, [taskObj]);
   }
@@ -1164,7 +1178,6 @@ function cmdActualizar() {
   const dataRange = sheet.getDataRange();
   const values = dataRange.getValues();
   const headerIdx = findHeaderRow(values);
-
   if (headerIdx === -1 || row <= headerIdx + 1) {
     ui.alert("⚠️ Selecciona una fila de datos válida.");
     return;
@@ -1177,7 +1190,6 @@ function cmdActualizar() {
   headers.forEach((h, i) => {
     if (h) taskObj[h] = rowData[i];
   });
-
   const id = taskObj["FOLIO"] || taskObj["ID"];
   if (!id) {
     ui.alert("❌ No se encontró un FOLIO o ID en esta fila. No se puede sincronizar.");
@@ -1198,4 +1210,21 @@ function cmdActualizar() {
   } else {
     SS.toast("✅ Actualización completada.");
   }
+}
+
+// --- FUNCIÓN GENERADORA (NUEVA) ---
+// Usar esta función para crear los subproyectos automáticamente
+function apiCreateStandardStructure(siteId, user) {
+    STANDARD_PROJECT_STRUCTURE.forEach(name => {
+        // Determinamos el tipo para que el Front sepa cómo dibujarlo
+        let tipo = "GENERAL";
+        if (name.includes("PPC")) tipo = "PPC_MASTER"; 
+        
+        apiSaveSubProject({
+            parentId: siteId,
+            name: name,
+            type: tipo,
+            createdBy: user || "SISTEMA"
+        });
+    });
 }
