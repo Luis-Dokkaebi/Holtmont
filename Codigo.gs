@@ -307,6 +307,7 @@ function internalFetchSheetData(sheetName) {
            }
         } else if (typeof val === 'string') {
            if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
+           else if (val.match(/^\d{4}-\d{2}-\d{2}$/)) { const parts = val.split('-'); val = parts[2] + "/" + parts[1] + "/" + parts[0].slice(-2); }
            else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
@@ -373,6 +374,61 @@ function apiFetchSalesHistory() {
     });
     return { success: true, data: grouped };
   } catch (e) { return { success: false, message: e.toString() }; }
+}
+
+function apiFetchKpiStats(names) {
+    if (!names || !Array.isArray(names)) return { success: false, message: "Lista inválida" };
+    const results = [];
+
+    names.forEach(name => {
+        const res = internalFetchSheetData(name);
+        if (!res.success) {
+            results.push({ name: name, count: 0, avgDays: 0 });
+            return;
+        }
+
+        const allRows = [...res.data, ...res.history];
+        let totalDays = 0;
+        let count = 0;
+
+        allRows.forEach(row => {
+            const keys = Object.keys(row);
+            // Identificar columnas de fecha
+            const startKey = keys.find(k => { const up = k.toUpperCase(); return (up.includes("FECHA") || up.includes("ALTA")) && !up.includes("RESPUESTA") && !up.includes("FIN") && !up.includes("ESTIMADA"); });
+            const endKey = keys.find(k => { const up = k.toUpperCase(); return up.includes("FECHA RESPUESTA") || up.includes("FECHA FIN") || up.includes("ENTREGA"); });
+
+            if (startKey && endKey && row[startKey] && row[endKey]) {
+                const parseDate = (val) => {
+                    if (val instanceof Date) return val;
+                    if (typeof val === 'string') {
+                         if (val.match(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/)) {
+                             const parts = val.split('/');
+                             let y = parts[2];
+                             if (y.length === 2) y = '20' + y;
+                             return new Date(y, parts[1]-1, parts[0]);
+                         }
+                    }
+                    return null;
+                };
+
+                const d1 = parseDate(row[startKey]);
+                const d2 = parseDate(row[endKey]);
+
+                if (d1 && d2) {
+                    const diff = (d2 - d1) / (1000 * 60 * 60 * 24);
+                    if (diff >= 0) { // Ignorar fechas negativas o erróneas
+                        totalDays += diff;
+                        count++;
+                    }
+                }
+            }
+        });
+
+        const avg = count > 0 ? parseFloat((totalDays / count).toFixed(1)) : 0;
+        results.push({ name: name, count: count, avgDays: avg });
+    });
+
+    return { success: true, data: results };
 }
 
 /**
@@ -575,6 +631,14 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+
+        // SINCRONIZACIÓN MAESTRA: Reflejar cambios en ADMINISTRADOR
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             const syncData = JSON.parse(JSON.stringify(taskData));
+             delete syncData._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [syncData]); } catch(e){ console.error("Sync Admin Error", e); }
+        }
+
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -582,7 +646,6 @@ function apiUpdateTask(personName, taskData) {
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }

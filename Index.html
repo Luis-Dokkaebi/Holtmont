@@ -1008,49 +1008,28 @@
       const openKpiView = () => { currentView.value = 'KPI_VIEW'; loadKpiData(); };
       const setKpiGroup = (g) => { kpiGroup.value = g; loadKpiData(); };
 
-      // --- SCRIPTMASTER MOD: LOGICA KPI VISUAL ---
-      // Se ha reemplazado la lógica de cálculo real por datos visuales fijos a petición.
-      // Cuando quieras conectar esto a datos reales, solo descomenta el código original.
+      // --- LOGICA KPI REAL ---
       const loadKpiData = () => {
           kpiLoading.value = true;
+          const targetGroup = (kpiGroup.value === 'VENDEDORES') ? GROUP_VENDEDORES : GROUP_TRACKER;
           
-          // Simulamos una pequeña carga para realismo UI
-          setTimeout(() => {
+          google.script.run.withSuccessHandler(res => {
               kpiLoading.value = false;
-              kpiStats.value = [];
-              const chartLabels = [];
-              const chartData = [];
-              
-              // Datos Hardcoded para Visualización
-              let fakeData = [];
+              if (res.success) {
+                  kpiStats.value = res.data;
+                  const chartLabels = [];
+                  const chartData = [];
 
-              if (kpiGroup.value === 'VENDEDORES') {
-                  fakeData = [
-                      { name: 'RAMIRO RODRIGUEZ', val: 2.5 },
-                      { name: 'EDUARDO MANZANARES', val: 2.2 },
-                      { name: 'SEBASTIAN PADILLA', val: 2.9 }
-                  ];
+                  res.data.forEach(item => {
+                      chartLabels.push(toInitials(item.name));
+                      chartData.push(item.avgDays);
+                  });
+
+                  renderKpiChart(chartLabels, chartData);
               } else {
-                  // Asumimos que el grupo 'TRACKER' son los Ingenieros mencionados
-                  fakeData = [
-                      { name: 'ANGEL SALINAS', val: 2.0 },
-                      { name: 'JUDITH ECHAVARRIA', val: 2.3 },
-                      { name: 'EDUARDO TERAN', val: 3.2 }
-                  ];
+                  Swal.fire('Error KPI', res.message, 'error');
               }
-
-              // Procesar datos falsos para la vista
-              fakeData.forEach(item => {
-                  // count dummy para que se vea algo
-                  const countDummy = Math.floor(Math.random() * 20) + 10; 
-                  kpiStats.value.push({ name: item.name, count: countDummy, avgDays: item.val });
-                  chartLabels.push(toInitials(item.name));
-                  chartData.push(item.val);
-              });
-
-              renderKpiChart(chartLabels, chartData);
-
-          }, 600);
+          }).apiFetchKpiStats(targetGroup);
       };
 
       const renderKpiChart = (labels, data) => {
