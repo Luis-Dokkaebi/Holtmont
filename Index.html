@@ -686,7 +686,7 @@
 </div>
 
 <script>
-  window.onerror = function(msg, url, line) { if(String(msg).toLowerCase().includes("script error")) return; Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + err.message }); };
+  window.onerror = function(msg, url, line, col, error) { if(String(msg).toLowerCase().includes("script error")) return; Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + (error ? error.message : msg) }); };
 
   const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
   const app = createApp({
@@ -924,8 +924,8 @@
       };
 
       const handleErr = (e) => { loggingIn.value=false; isSubmitting.value=false; Swal.fire('Error',e.message,'error'); };
-      const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role); loadCascadeTree(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
-      const loadConfig = (r) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data; } }).apiFetchDrafts(); } }).getSystemConfig(r); };
+      const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role, res.username); loadCascadeTree(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
+      const loadConfig = (r, u) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data; } }).apiFetchDrafts(); } }).getSystemConfig(r, u); };
       const toggleSidebar = () => { isCompact.value = !isCompact.value; };
       const logout = () => { isLoggedIn.value=false; loginPass.value=''; loginUser.value=''; currentView.value='DASHBOARD'; };
       const goHome = () => { currentView.value='DASHBOARD'; currentDept.value=''; currentModuleId.value=''; };
@@ -1009,48 +1009,25 @@
       const setKpiGroup = (g) => { kpiGroup.value = g; loadKpiData(); };
 
       // --- SCRIPTMASTER MOD: LOGICA KPI VISUAL ---
-      // Se ha reemplazado la lógica de cálculo real por datos visuales fijos a petición.
-      // Cuando quieras conectar esto a datos reales, solo descomenta el código original.
       const loadKpiData = () => {
           kpiLoading.value = true;
-          
-          // Simulamos una pequeña carga para realismo UI
-          setTimeout(() => {
+          google.script.run.withSuccessHandler(res => {
               kpiLoading.value = false;
-              kpiStats.value = [];
-              const chartLabels = [];
-              const chartData = [];
-              
-              // Datos Hardcoded para Visualización
-              let fakeData = [];
+              if (res.success) {
+                  kpiStats.value = res.data;
+                  const chartLabels = [];
+                  const chartData = [];
 
-              if (kpiGroup.value === 'VENDEDORES') {
-                  fakeData = [
-                      { name: 'RAMIRO RODRIGUEZ', val: 2.5 },
-                      { name: 'EDUARDO MANZANARES', val: 2.2 },
-                      { name: 'SEBASTIAN PADILLA', val: 2.9 }
-                  ];
+                  res.data.forEach(item => {
+                      chartLabels.push(toInitials(item.name));
+                      chartData.push(item.avgDays);
+                  });
+
+                  renderKpiChart(chartLabels, chartData);
               } else {
-                  // Asumimos que el grupo 'TRACKER' son los Ingenieros mencionados
-                  fakeData = [
-                      { name: 'ANGEL SALINAS', val: 2.0 },
-                      { name: 'JUDITH ECHAVARRIA', val: 2.3 },
-                      { name: 'EDUARDO TERAN', val: 3.2 }
-                  ];
+                  Swal.fire('Error KPI', res.message, 'error');
               }
-
-              // Procesar datos falsos para la vista
-              fakeData.forEach(item => {
-                  // count dummy para que se vea algo
-                  const countDummy = Math.floor(Math.random() * 20) + 10; 
-                  kpiStats.value.push({ name: item.name, count: countDummy, avgDays: item.val });
-                  chartLabels.push(toInitials(item.name));
-                  chartData.push(item.val);
-              });
-
-              renderKpiChart(chartLabels, chartData);
-
-          }, 600);
+          }).apiFetchKpiStats(kpiGroup.value);
       };
 
       const renderKpiChart = (labels, data) => {
