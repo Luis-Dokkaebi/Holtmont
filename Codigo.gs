@@ -132,7 +132,7 @@ function apiLogin(username, password) {
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
 }
 
-function getSystemConfig(role) {
+function getSystemConfig(role, username) {
   // CONFIGURACIÓN COMPLETA DE DIRECTORIO
   const fullDirectory = [
     { name: "ANTONIA_VENTAS", dept: "VENTAS" }, 
@@ -251,7 +251,7 @@ function getSystemConfig(role) {
   }
 
   // DEFAULT FALLBACK (GENERIC USER)
-  const myName = role === 'USER_GENERIC' ? arguments[1] : ''; // Hack si pasamos nombre
+  const myName = role === 'USER_GENERIC' ? username : '';
   return {
     departments: allDepts, allDepartments: allDepts, staff: fullDirectory, directory: fullDirectory,
     specialModules: [ 
@@ -575,6 +575,14 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+
+        // Sync to ADMINISTRADOR automatically for everyone
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             const syncData = JSON.parse(JSON.stringify(taskData));
+             delete syncData._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [syncData]); } catch(e){}
+        }
+
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -582,7 +590,6 @@ function apiUpdateTask(personName, taskData) {
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -1006,4 +1013,92 @@ function apiCreateStandardStructure(siteId, user) {
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
         apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
     });
+}
+function apiFetchKpiStats(groupName) {
+  try {
+    // Define groups
+    const GROUPS = {
+        'VENDEDORES': ["RAMIRO RODRIGUEZ", "EDUARDO MANZANARES", "SEBASTIAN PADILLA", "CESAR GOMEZ", "ALFONSO CORREA", "TERESA GARZA", "GUILLERMO DAMICO", "JUAN JOSE SANCHEZ"],
+        'TRACKER': ["JUDITH ECHAVARRIA", "EDUARDO TERAN", "ANGEL SALINAS"]
+    };
+
+    const targetNames = GROUPS[groupName] || [];
+    const stats = [];
+
+    targetNames.forEach(name => {
+        const res = internalFetchSheetData(name);
+        let avgDays = 0;
+        let count = 0;
+
+        if (res.success) {
+            const allTasks = [...res.data, ...res.history];
+            let totalDays = 0;
+            let validTasks = 0;
+
+            // Calculate average days for tasks that have start and end dates or similar logic
+            // Assuming we want to measure "Time to Complete" or similar.
+            // Based on memory: "aggregates data from user-specific sheets by comparing identified start and end date columns"
+
+            allTasks.forEach(task => {
+                // Try to find start and end dates
+                // Common headers: 'FECHA' (Start), 'FECHA_RESPUESTA' or 'FECHA FIN' (End/Target)
+                // Or maybe 'FECHA' vs 'FECHA DE ENTREGA'
+                // Or maybe we use 'DIAS' column if it exists and is populated?
+
+                // Let's look for 'DIAS' or 'RELOJ' first as it seems to be a calculated duration or similar
+                let dias = task['DIAS'] || task['RELOJ'];
+                if (dias && !isNaN(parseFloat(dias))) {
+                    totalDays += parseFloat(dias);
+                    validTasks++;
+                } else {
+                     // Fallback: Calculate from dates
+                     const startKey = Object.keys(task).find(k => ['FECHA', 'ALTA', 'FECHA ALTA'].includes(k.toUpperCase()));
+                     const endKey = Object.keys(task).find(k => ['FECHA_RESPUESTA', 'FECHA FIN', 'FECHA ENTREGA'].includes(k.toUpperCase()));
+
+                     if (startKey && endKey && task[startKey] && task[endKey]) {
+                         const start = parseDate(task[startKey]);
+                         const end = parseDate(task[endKey]);
+                         if (start && end) {
+                             const diffTime = Math.abs(end - start);
+                             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                             totalDays += diffDays;
+                             validTasks++;
+                         }
+                     }
+                }
+            });
+
+            if (validTasks > 0) {
+                avgDays = (totalDays / validTasks).toFixed(1);
+            }
+            count = validTasks;
+        }
+
+        stats.push({ name: name, count: count, avgDays: parseFloat(avgDays) || 0 });
+    });
+
+    return { success: true, data: stats };
+
+  } catch (e) {
+      return { success: false, message: e.toString() };
+  }
+}
+
+function parseDate(dateVal) {
+    if (!dateVal) return null;
+    if (dateVal instanceof Date) return dateVal;
+    if (typeof dateVal === 'string') {
+        // Try DD/MM/YYYY
+        let parts = dateVal.split('/');
+        if (parts.length === 3) {
+             let y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+             return new Date(`${y}-${parts[1]}-${parts[0]}`);
+        }
+        // Try YYYY-MM-DD
+        parts = dateVal.split('-');
+        if (parts.length === 3) {
+            return new Date(dateVal);
+        }
+    }
+    return null;
 }
