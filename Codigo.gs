@@ -1007,3 +1007,69 @@ function apiCreateStandardStructure(siteId, user) {
         apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
     });
 }
+
+function apiFetchKpiStats(staffNames) {
+  try {
+    const stats = [];
+    const names = Array.isArray(staffNames) ? staffNames : [staffNames];
+
+    names.forEach(name => {
+        const res = internalFetchSheetData(name);
+        if (!res.success) {
+            stats.push({ name: name, count: 0, avgDays: 0 });
+            return;
+        }
+
+        const allTasks = [...res.data, ...res.history];
+        let totalDays = 0;
+        let count = 0;
+
+        allTasks.forEach(task => {
+            // Find start date key
+            const startKey = Object.keys(task).find(k => {
+                const up = k.toUpperCase().trim();
+                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO'].includes(up);
+            });
+            // Find end date key
+            const endKey = Object.keys(task).find(k => {
+                const up = k.toUpperCase().trim();
+                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO'].includes(up);
+            });
+
+            if (startKey && endKey && task[startKey] && task[endKey]) {
+                const startStr = task[startKey];
+                const endStr = task[endKey];
+
+                const parse = (s) => {
+                    if (s instanceof Date) return s;
+                    const p = String(s).split('/');
+                    if (p.length === 3) {
+                       let y = parseInt(p[2]);
+                       if (y < 100) y += 2000;
+                       return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
+                    }
+                    return null;
+                };
+
+                const d1 = parse(startStr);
+                const d2 = parse(endStr);
+
+                if (d1 && d2) {
+                    const diffTime = d2 - d1;
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    // Filter out negative or unrealistic values if needed
+                    if (diffDays >= 0 && diffDays < 365) {
+                        totalDays += diffDays;
+                        count++;
+                    }
+                }
+            }
+        });
+
+        const avg = count > 0 ? (totalDays / count).toFixed(1) : 0;
+        stats.push({ name: name, count: count, avgDays: parseFloat(avg) });
+    });
+
+    return { success: true, data: stats };
+  } catch(e) { return { success: false, message: e.toString() }; }
+}
