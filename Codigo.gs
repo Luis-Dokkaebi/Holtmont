@@ -769,7 +769,14 @@ function apiFetchWeeklyPlanData() {
       let semanaNum = "-";
       if (fechaVal) {
         let dateObj = null;
-        if (String(fechaVal).includes("/")) { const parts = String(fechaVal).split("/"); if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]); } 
+        if (String(fechaVal).includes("/")) {
+           const parts = String(fechaVal).split("/");
+           if(parts.length === 3) {
+             let y = parseInt(parts[2]);
+             if (y < 100) y += 2000;
+             dateObj = new Date(y, parts[1]-1, parts[0]);
+           }
+        }
         else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
@@ -1028,12 +1035,12 @@ function apiFetchKpiStats(staffNames) {
             // Find start date key
             const startKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO'].includes(up);
+                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO', 'FECHA VISITA'].includes(up);
             });
             // Find end date key
             const endKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO'].includes(up);
+                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO', 'FECHA ESTIMADA DE FIN', 'FECHA ESTIMADA', 'FECHA CIERRE', 'FEC. EST. FIN'].includes(up);
             });
 
             if (startKey && endKey && task[startKey] && task[endKey]) {
