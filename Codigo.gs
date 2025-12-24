@@ -459,7 +459,20 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+
+      // BUG FIX: Evitar sobrescritura incorrecta si el ID no coincide (desplazamiento de filas)
+      if (rowIndex === -1 && task._rowIndex) {
+          const tentative = parseInt(task._rowIndex) - 1;
+          if (tentative > headerRowIndex && tentative < values.length) {
+              let safeToUse = true;
+              if (tFolio && folioIdx > -1) {
+                  const currentId = String(values[tentative][folioIdx]).toUpperCase().trim();
+                  // Si existe un ID en esa fila y NO coincide, es una colisión (fila movida)
+                  if (currentId && currentId !== tFolio) safeToUse = false;
+              }
+              if (safeToUse) rowIndex = tentative;
+          }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -575,15 +588,26 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
+
+        // SYNC AUTOMÁTICO AL MAESTRO (ADMINISTRADOR)
+        // Se aplica para TODOS los usuarios, no solo Antonia
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
-             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
-             if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
-                 try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
-             }
              try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
+
+        // SYNC DE RETORNO AL VENDEDOR (Si un tercero edita la tarea de un vendedor)
+        const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
+        if (vendedorKey && taskData[vendedorKey]) {
+            const targetVendedor = String(taskData[vendedorKey]).trim().toUpperCase();
+            if (targetVendedor !== String(personName).toUpperCase().trim() && targetVendedor !== "ADMINISTRADOR") {
+                 const distData = JSON.parse(JSON.stringify(taskData));
+                 delete distData._rowIndex;
+                 try { internalBatchUpdateTasks(targetVendedor, [distData]); } catch(e){}
+            }
+        }
+
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
 }
