@@ -459,7 +459,23 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+      if (rowIndex === -1 && task._rowIndex) {
+          const tryIndex = parseInt(task._rowIndex) - 1;
+          // SAFETY CHECK: Ensure we are not overwriting a different ID
+          if (tryIndex > headerRowIndex && tryIndex < values.length) {
+              if (folioIdx > -1) {
+                  const existingId = String(values[tryIndex][folioIdx]).toUpperCase().trim();
+                  // If existing ID is empty OR matches our ID, it's safe.
+                  // If existing ID is different, we assume row shifted -> Append instead.
+                  if (existingId === "" || (tFolio && existingId === tFolio.trim())) {
+                      rowIndex = tryIndex;
+                  }
+              } else {
+                  // No ID column to verify, trust the index (legacy behavior)
+                  rowIndex = tryIndex;
+              }
+          }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -1028,12 +1044,12 @@ function apiFetchKpiStats(staffNames) {
             // Find start date key
             const startKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO'].includes(up);
+                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO', 'FECHA VISITA'].includes(up);
             });
             // Find end date key
             const endKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO'].includes(up);
+                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO', 'FECHA ESTIMADA', 'FECHA ESTIMADA DE FIN', 'FEC. EST. FIN'].includes(up);
             });
 
             if (startKey && endKey && task[startKey] && task[endKey]) {
