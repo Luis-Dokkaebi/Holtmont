@@ -671,7 +671,7 @@ function apiSavePPCData(payload) {
                  'COMENTARIOS': item.comentarios, 'ARCHIVO': item.archivoUrl
           };
           addTaskToSheet("ADMINISTRADOR", taskData);
-          const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
+        const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s && s.toUpperCase() !== "ADMINISTRADOR");
           responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
       });
 
@@ -769,7 +769,14 @@ function apiFetchWeeklyPlanData() {
       let semanaNum = "-";
       if (fechaVal) {
         let dateObj = null;
-        if (String(fechaVal).includes("/")) { const parts = String(fechaVal).split("/"); if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]); } 
+        if (String(fechaVal).includes("/")) {
+            const parts = String(fechaVal).split("/");
+            if(parts.length === 3) {
+                let y = parseInt(parts[2]);
+                if (y < 100) y += 2000;
+                dateObj = new Date(y, parseInt(parts[1])-1, parseInt(parts[0]));
+            }
+        }
         else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
@@ -872,7 +879,13 @@ function apiFetchCascadeTree() {
       const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
         const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
-        const colMap = { parentId: headers.findIndex(h => h.includes("SITIO") || h.includes("PADRE")), name: headers.findIndex(h => h.includes("NOMBRE") || h.includes("SUBPROYECTO")), type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")), status: headers.findIndex(h => h.includes("ESTATUS")) };
+        const colMap = {
+            id: headers.findIndex(h => h === "ID_PROYECTO" || h.includes("ID")),
+            parentId: headers.findIndex(h => h.includes("SITIO") || h.includes("PADRE")),
+            name: headers.findIndex(h => h.includes("NOMBRE") || h.includes("SUBPROYECTO")),
+            type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")),
+            status: headers.findIndex(h => h.includes("ESTATUS"))
+        };
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.parentId > -1 && colMap.name > -1 && row[colMap.parentId]) {
@@ -882,7 +895,7 @@ function apiFetchCascadeTree() {
                const pName = String(row[colMap.name]).trim().toUpperCase();
                let icon = "fa-clipboard-list";
                if (pName.includes("PPC")) icon = "fa-tasks";
-               parent.subProjects.push({ id: row[0], name: String(row[colMap.name]).trim(), type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", icon: icon });
+               parent.subProjects.push({ id: (colMap.id > -1) ? row[colMap.id] : row[0], name: String(row[colMap.name]).trim(), type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", icon: icon });
              }
           }
         }
