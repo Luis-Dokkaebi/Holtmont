@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -502,7 +502,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if (values[i].some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -575,15 +575,25 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
+        const pNameUpper = String(personName).toUpperCase().trim();
+
+        // Sincronización especial para Ventas (Antonia)
+        if (pNameUpper === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
              const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
+
+        // Sincronización Global a ADMINISTRADOR (si no estamos ya ahí)
+        if (pNameUpper !== "ADMINISTRADOR") {
+             const syncObj = { ...taskData };
+             delete syncObj._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [syncObj]); } catch(e){}
+        }
+
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
 }
