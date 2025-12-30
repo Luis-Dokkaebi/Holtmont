@@ -289,7 +289,8 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      // FIX: Use strict matching to prevent false positives
+      if (row.some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -380,10 +381,16 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  const useLock = !optOptions || !optOptions.skipLock;
+  let lock = null;
+
+  if (useLock) {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -461,6 +468,15 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       }
       if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
 
+      // FIX: Validate ID conflict if we are relying on index
+      if (rowIndex > -1 && rowIndex < values.length && folioIdx > -1 && tFolio) {
+          const existingId = String(values[rowIndex][folioIdx]).toUpperCase().trim();
+          if (existingId && existingId !== tFolio.trim()) {
+              // ID mismatch! The row might have shifted or is different. Treat as new to avoid overwriting wrong task.
+              rowIndex = -1;
+          }
+      }
+
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
          Object.keys(task).forEach(key => {
@@ -502,7 +518,8 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            // FIX: Strict check for separator
+            if(values[i].some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -567,7 +584,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -575,14 +592,23 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
-        if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
+
+        // FIX: Always sync to ADMINISTRADOR (if not already there)
+        const pName = String(personName).toUpperCase();
+        if (pName !== "ADMINISTRADOR") {
+             const distData = JSON.parse(JSON.stringify(taskData));
+             delete distData._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
+        }
+
+        // Specific logic for ANTONIA_VENTAS (Sync to VENDEDOR)
+        if (pName === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
              const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -679,7 +705,8 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      // FIX: Skip lock since we already hold it
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, {skipLock: true}); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
