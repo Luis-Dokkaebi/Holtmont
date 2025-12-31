@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -459,7 +459,17 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+      if (rowIndex === -1 && task._rowIndex) {
+         const candidateIdx = parseInt(task._rowIndex) - 1;
+         if (candidateIdx > -1 && candidateIdx < values.length) {
+             let matchConfirmed = true;
+             if (folioIdx > -1 && tFolio) {
+                 const currentId = String(values[candidateIdx][folioIdx]).toUpperCase().trim();
+                 if (currentId !== tFolio.trim()) matchConfirmed = false;
+             }
+             if (matchConfirmed) rowIndex = candidateIdx;
+         }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -502,7 +512,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -718,7 +728,7 @@ function apiFetchPPCData() {
       reloj: headers.findIndex(h => h.includes("RELOJ")),
       cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
       arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
-      com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
+      com: headers.findIndex(h => (h.includes("COMENTARIOS") || h.includes("OBSERVACIONES")) && !h.includes("PREVIA") && !h.includes("PREVIOS")),
       prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
     };
     let dataRows = values.slice(headerIdx + 1);
