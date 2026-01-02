@@ -118,15 +118,7 @@ function apiLogin(username, password) {
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
   
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
+  // 2. Acceso Universal para trabajadores (Eliminado por seguridad)
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -380,10 +372,13 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  const useLock = !(optOptions && optOptions.skipLock);
+  const lock = useLock ? LockService.getScriptLock() : null;
+
+  if (useLock && !lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -567,7 +562,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (useLock && lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -679,7 +674,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true }); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
