@@ -575,6 +575,14 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+
+        // Sync to ADMINISTRADOR (always, except if we are already updating it)
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             const distData = JSON.parse(JSON.stringify(taskData));
+             delete distData._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
+        }
+
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -582,7 +590,6 @@ function apiUpdateTask(personName, taskData) {
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -769,7 +776,14 @@ function apiFetchWeeklyPlanData() {
       let semanaNum = "-";
       if (fechaVal) {
         let dateObj = null;
-        if (String(fechaVal).includes("/")) { const parts = String(fechaVal).split("/"); if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]); } 
+        if (String(fechaVal).includes("/")) {
+            const parts = String(fechaVal).split("/");
+            if(parts.length === 3) {
+                let y = parseInt(parts[2]);
+                if (y < 100) y += 2000;
+                dateObj = new Date(y, parts[1]-1, parts[0]);
+            }
+        }
         else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
