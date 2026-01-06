@@ -119,14 +119,7 @@ function apiLogin(username, password) {
   }
   
   // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
+  // [SEGURIDAD] Backdoor removido.
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -289,7 +282,10 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      // Ajustado para ser más estricto y evitar falsos positivos en descripciones
+      const firstCol = String(row[0] || "").toUpperCase().trim();
+      if (firstCol === "TAREAS REALIZADAS" || (row.join("").trim().toUpperCase() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -303,11 +299,13 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              // FIX: Usar 4 dígitos para el año para evitar ambigüedad (YYYY)
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           // FIX: No recortar el año a 2 dígitos
+           // if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
+           if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -454,12 +452,32 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       let tFolio = "";
       for (let pk of possibleKeys) { if (task[pk]) { tFolio = String(task[pk]).toUpperCase(); break; } }
 
+      let foundById = false;
       if (tFolio && folioIdx > -1) {
          for (let i = headerRowIndex + 1; i < values.length; i++) {
-           if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
+           if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; foundById = true; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+
+      // FIX: Verificar colisión si usamos _rowIndex fallback
+      if (rowIndex === -1 && task._rowIndex) {
+         const candidateIndex = parseInt(task._rowIndex) - 1;
+         if (candidateIndex > -1 && candidateIndex < values.length) {
+             // Verificar si la fila destino tiene un ID diferente
+             if (folioIdx > -1) {
+                 const targetId = String(values[candidateIndex][folioIdx] || "").trim().toUpperCase();
+                 if (targetId && targetId !== tFolio.trim()) {
+                     // CONFLICTO: La fila destino tiene un ID diferente.
+                     // No sobrescribir. Tratar como nueva.
+                     rowIndex = -1;
+                 } else {
+                     rowIndex = candidateIndex;
+                 }
+             } else {
+                rowIndex = candidateIndex;
+             }
+         }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -502,7 +520,10 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            const rowStr = values[i].join("|").toUpperCase(); // Mantener para compatibilidad
+            const firstCol = String(values[i][0]).toUpperCase().trim();
+            // FIX: Detección más estricta
+            if(firstCol === "TAREAS REALIZADAS" || (rowStr.includes("TAREAS REALIZADAS") && values[i].join("").trim().length < 25)) {
                 separatorIndex = i; break;
             }
         }
