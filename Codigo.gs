@@ -380,10 +380,11 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  const skipLock = optOptions && optOptions.skipLock;
+  if (!skipLock && !lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -459,7 +460,19 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+      if (rowIndex === -1 && task._rowIndex) {
+         const candidate = parseInt(task._rowIndex) - 1;
+         if (candidate >= headerRowIndex + 1 && candidate < values.length) {
+            // Safety Check: Validate ID match to avoid overwriting wrong row
+            const rowId = String(values[candidate][folioIdx] || "").toUpperCase().trim();
+            if (folioIdx > -1 && tFolio && rowId && rowId !== tFolio) {
+               // Conflict: Row has a different ID. Treat as new.
+               rowIndex = -1;
+            } else {
+               rowIndex = candidate;
+            }
+         }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -567,7 +580,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if(!skipLock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -657,7 +670,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -679,7 +692,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, {skipLock: true}); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -806,7 +819,7 @@ function apiSaveSite(siteData) {
              return { success: false, message: "Ya existe un sitio con ese nombre."};
          }
       }
-      const id = "SITE-" + new Date().getTime();
+      const id = Utilities.getUuid();
       sheet.appendRow([ id, cleanName, siteData.client.toUpperCase().trim(), siteData.type || "CLIENTE", "ACTIVO", new Date(), siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       apiCreateStandardStructure(id, siteData.createdBy);
@@ -836,7 +849,7 @@ function apiSaveSubProject(subProjectData) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio."};
           }
       }
-      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
+      const id = Utilities.getUuid();
       sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
@@ -960,7 +973,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
