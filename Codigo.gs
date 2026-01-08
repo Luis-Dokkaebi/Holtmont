@@ -578,7 +578,7 @@ function apiUpdateTask(personName, taskData) {
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
-             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
+             const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim().includes("VENDEDOR"));
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
@@ -718,8 +718,8 @@ function apiFetchPPCData() {
       reloj: headers.findIndex(h => h.includes("RELOJ")),
       cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
       arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
-      com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
-      prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
+      com: headers.findIndex(h => h.includes("COMENTARIOS") && !h.includes("PREVIOS") && !h.includes("PREVIA")),
+      prev: headers.findIndex(h => h.includes("PREVIOS") || h.includes("PREVIA"))
     };
     let dataRows = values.slice(headerIdx + 1);
     if(dataRows.length > 300) dataRows = dataRows.slice(dataRows.length - 300);
@@ -800,8 +800,19 @@ function apiSaveSite(siteData) {
       }
       const data = sheet.getDataRange().getValues();
       const cleanName = siteData.name.toUpperCase().trim();
-      const nameColIdx = data.length > 0 ? data[0].indexOf("NOMBRE") : 1;
-      for(let i=1; i<data.length; i++) {
+
+      let nameColIdx = 1;
+      let startRow = 1;
+      const headerRow = findHeaderRow(data);
+      if (headerRow > -1) {
+          const headers = data[headerRow].map(h => String(h).toUpperCase());
+          nameColIdx = headers.indexOf("NOMBRE");
+          startRow = headerRow + 1;
+      } else if (data.length > 0) {
+          nameColIdx = data[0].indexOf("NOMBRE") > -1 ? data[0].indexOf("NOMBRE") : 1;
+      }
+
+      for(let i=startRow; i<data.length; i++) {
          if (data[i][nameColIdx] && String(data[i][nameColIdx]).toUpperCase().trim() === cleanName) {
              return { success: false, message: "Ya existe un sitio con ese nombre."};
          }
@@ -830,8 +841,14 @@ function apiSaveSubProject(subProjectData) {
       const data = sheet.getDataRange().getValues();
       let idSitioIdx = 1, nameIdx = 2;
       const headerRow = findHeaderRow(data);
-      if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
-      for(let i=1; i<data.length; i++) {
+      let startRow = 1;
+      if (headerRow > -1) {
+          const headers = data[headerRow].map(h=>String(h).toUpperCase());
+          idSitioIdx = headers.indexOf("ID_SITIO");
+          nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO");
+          startRow = headerRow + 1;
+      }
+      for(let i=startRow; i<data.length; i++) {
           if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio."};
           }
