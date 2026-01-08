@@ -119,14 +119,7 @@ function apiLogin(username, password) {
   }
   
   // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
+  // ELIMINADO POR SEGURIDAD
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -459,7 +452,21 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+      if (rowIndex === -1 && task._rowIndex) {
+          const fallbackIndex = parseInt(task._rowIndex) - 1;
+          // SAFETY CHECK: Validar que si usamos el índice, el ID coincida (si existe ID)
+          if (fallbackIndex > headerRowIndex && fallbackIndex < values.length) {
+               const rowFolio = folioIdx > -1 ? String(values[fallbackIndex][folioIdx]).toUpperCase().trim() : "";
+               if (tFolio && rowFolio && rowFolio !== tFolio) {
+                   // Conflicto de IDs: La fila tiene un ID diferente al que intentamos actualizar.
+                   // Asumimos que las filas se movieron y no encontramos el ID original en la búsqueda lineal anterior.
+                   // Tratamos como NUEVA para no sobrescribir datos incorrectos.
+                   rowIndex = -1;
+               } else {
+                   rowIndex = fallbackIndex;
+               }
+          }
+      }
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -657,7 +664,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -692,7 +699,12 @@ function uploadFileToDrive(data, type, name) {
     let folder;
     if (folderId && folderId.trim() !== "") { try { folder = DriveApp.getFolderById(folderId); } catch(e) { folder = DriveApp.getRootFolder(); } } 
     else { folder = DriveApp.getRootFolder(); }
-    const blob = Utilities.newBlob(Utilities.base64Decode(data.split(',')[1]), type, name);
+
+    let b64Data = data;
+    if (data.includes(',')) {
+        b64Data = data.split(',')[1];
+    }
+    const blob = Utilities.newBlob(Utilities.base64Decode(b64Data), type, name);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return { success: true, fileUrl: file.getUrl() };
@@ -960,7 +972,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
