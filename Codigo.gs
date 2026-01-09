@@ -575,6 +575,15 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+
+        // SYNC TO ADMINISTRADOR (Generic for all users)
+        // If the user is NOT Administrator, we sync changes to the Master Sheet
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             const syncObj = JSON.parse(JSON.stringify(taskData));
+             delete syncObj._rowIndex; // Important: remove row index from source sheet
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [syncObj]); } catch(e){ console.error("Sync error to ADMIN", e); }
+        }
+
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -582,7 +591,6 @@ function apiUpdateTask(personName, taskData) {
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -657,7 +665,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -672,7 +680,7 @@ function apiSavePPCData(payload) {
           };
           addTaskToSheet("ADMINISTRADOR", taskData);
           const responsables = String(item.responsable || "").split(",").map(s => s.trim()).filter(s => s);
-          responsables.forEach(personName => { addTaskToSheet(personName, taskData); });
+          responsables.filter(n => n.toUpperCase() !== "ADMINISTRADOR").forEach(personName => { addTaskToSheet(personName, taskData); });
       });
 
       if (rowsForPPC.length > 0) {
@@ -960,7 +968,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
@@ -1028,12 +1036,12 @@ function apiFetchKpiStats(staffNames) {
             // Find start date key
             const startKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO'].includes(up);
+                return ['FECHA', 'FECHA ALTA', 'FECHA INICIO', 'ALTA', 'FECHA DE INICIO', 'FECHA VISITA'].includes(up);
             });
             // Find end date key
             const endKey = Object.keys(task).find(k => {
                 const up = k.toUpperCase().trim();
-                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO'].includes(up);
+                return ['FECHA_RESPUESTA', 'FECHA RESPUESTA', 'FECHA FIN', 'FECHA DE ENTREGA', 'FECHA ENVIO', 'FECHA ESTIMADA', 'FECHA ESTIMADA DE FIN', 'FEC. EST. FIN'].includes(up);
             });
 
             if (startKey && endKey && task[startKey] && task[endKey]) {
