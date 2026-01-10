@@ -119,14 +119,7 @@ function apiLogin(username, password) {
   }
   
   // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
+  // [REMOVIDO POR SEGURIDAD] El acceso genérico '123' ha sido deshabilitado.
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -289,7 +282,8 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      // Ajustado para ser más estricto
+      if (String(row[0]).toUpperCase().includes("TAREAS REALIZADAS") || row.join("").toUpperCase().trim() === "TAREAS REALIZADAS") { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -380,10 +374,14 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  let lock = null;
+  if (!optOptions || !optOptions.skipLock) {
+      lock = LockService.getScriptLock();
+      if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -502,7 +500,8 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            // DETECCION ESTRICTA DE SECCION
+            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("")).toUpperCase().trim() === "TAREAS REALIZADAS") {
                 separatorIndex = i; break;
             }
         }
@@ -567,7 +566,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if(lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -657,7 +656,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -679,7 +678,8 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      // Pasar {skipLock: true} porque ya tenemos el lock
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, {skipLock: true}); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -960,7 +960,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
