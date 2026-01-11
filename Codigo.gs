@@ -118,16 +118,6 @@ function apiLogin(username, password) {
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
   
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
-
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
 }
@@ -575,6 +565,15 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+
+        // Sincronización Global a ADMINISTRADOR (Si no es el propio Admin)
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             const distData = JSON.parse(JSON.stringify(taskData));
+             delete distData._rowIndex;
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){ console.error("Sync error:", e); }
+        }
+
+        // Lógica Especial Antonia (Sincroniza a Vendedor Específico)
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
              const distData = JSON.parse(JSON.stringify(taskData));
              delete distData._rowIndex; 
@@ -582,7 +581,6 @@ function apiUpdateTask(personName, taskData) {
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -657,7 +655,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -960,7 +958,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
@@ -1042,11 +1040,22 @@ function apiFetchKpiStats(staffNames) {
 
                 const parse = (s) => {
                     if (s instanceof Date) return s;
-                    const p = String(s).split('/');
-                    if (p.length === 3) {
-                       let y = parseInt(p[2]);
-                       if (y < 100) y += 2000;
-                       return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
+                    const str = String(s).trim();
+                    // Formato dd/mm/yyyy o dd/mm/yy
+                    if (str.includes('/')) {
+                        const p = str.split('/');
+                        if (p.length === 3) {
+                            let y = parseInt(p[2]);
+                            if (y < 100) y += 2000;
+                            return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
+                        }
+                    }
+                    // Formato yyyy-mm-dd
+                    if (str.includes('-')) {
+                        const p = str.split('-');
+                        if (p.length === 3) {
+                           return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+                        }
                     }
                     return null;
                 };
