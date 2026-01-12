@@ -983,7 +983,7 @@
           const row={_isNew:true}; 
           staffTracker.value.headers.forEach(h => {
               const hUpper = String(h).toUpperCase().trim();
-              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Math.floor(Math.random() * 1000000); } else { row[h] = ""; }
+              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Date.now() + "-" + Math.floor(Math.random() * 1000); } else { row[h] = ""; }
           }); 
           staffTracker.value.data.unshift(row); 
       };
