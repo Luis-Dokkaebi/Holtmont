@@ -389,7 +389,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                   <tr v-for="(row, i) in projectTasks.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                   <tr v-for="(row, i) in projectTasks.data" :key="row.FOLIO || row.ID || i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td>
                       <td v-for="(h, idx) in projectTasks.headers" :key="idx">
                          <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
@@ -439,7 +439,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                   <tr v-for="(row, i) in staffTracker.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                   <tr v-for="(row, i) in staffTracker.data" :key="row.FOLIO || row.ID || i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td>
                       <td v-for="(h, idx) in staffTracker.headers" :key="idx">
                          <div v-if="isCol(h, ['AREA','ALTA','ESPECIALIDAD'])" style="position:relative; width:100%; height:100%;">
@@ -541,7 +541,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(row, i) in filteredWeeklyData" :key="i">
+                        <tr v-for="(row, i) in filteredWeeklyData" :key="row.FOLIO || row.ID || row._rowIndex || i">
                             <td class="row-num">{{ i + 1 }}</td>
                             <td v-for="(h, idx) in weeklyPlanData.headers" :key="idx" class="text-center">
                                 <div v-if="h === 'SEMANA'" style="font-weight:bold; color:#0d6efd; background-color:#f8f9fa; font-size:10px;">S{{ row[h] }}</div>
@@ -781,7 +781,17 @@
       };
 
       const refreshProjectTasks = () => { if(currentPpcProject.value) loadProjectTasks(currentPpcProject.value.name); };
-      const addNewProjectTask = () => { if (!projectTasks.value.headers.length) return; const row = { _isNew: true }; projectTasks.value.headers.forEach(h => row[h] = ""); row['ESTATUS'] = 'PENDIENTE'; projectTasks.value.data.unshift(row); };
+      const addNewProjectTask = () => {
+          if (!projectTasks.value.headers.length) return;
+          const row = { _isNew: true };
+          projectTasks.value.headers.forEach(h => {
+             const hUpper = String(h).toUpperCase().trim();
+             if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "PROJ-TASK-" + new Date().getTime() + "-" + Math.floor(Math.random() * 1000); }
+             else { row[h] = ""; }
+          });
+          row['ESTATUS'] = 'PENDIENTE';
+          projectTasks.value.data.unshift(row);
+      };
       const saveProjectRow = (row) => {
           if(!currentPpcProject.value) return;
           Swal.showLoading();
@@ -983,7 +993,7 @@
           const row={_isNew:true}; 
           staffTracker.value.headers.forEach(h => {
               const hUpper = String(h).toUpperCase().trim();
-              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Math.floor(Math.random() * 1000000); } else { row[h] = ""; }
+              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + new Date().getTime() + "-" + Math.floor(Math.random() * 1000); } else { row[h] = ""; }
           }); 
           staffTracker.value.data.unshift(row); 
       };
