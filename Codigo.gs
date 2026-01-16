@@ -458,8 +458,9 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
          for (let i = headerRowIndex + 1; i < values.length; i++) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
+      } else if (rowIndex === -1 && task._rowIndex) {
+        rowIndex = parseInt(task._rowIndex) - 1;
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
