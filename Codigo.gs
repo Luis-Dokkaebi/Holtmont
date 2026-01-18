@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(cell => String(cell).toUpperCase().trim() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -303,11 +303,10 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -502,7 +501,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(cell => String(cell).toUpperCase().trim() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -657,7 +656,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -806,7 +805,7 @@ function apiSaveSite(siteData) {
              return { success: false, message: "Ya existe un sitio con ese nombre."};
          }
       }
-      const id = "SITE-" + new Date().getTime();
+      const id = "SITE-" + Utilities.getUuid();
       sheet.appendRow([ id, cleanName, siteData.client.toUpperCase().trim(), siteData.type || "CLIENTE", "ACTIVO", new Date(), siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       apiCreateStandardStructure(id, siteData.createdBy);
@@ -836,7 +835,7 @@ function apiSaveSubProject(subProjectData) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio."};
           }
       }
-      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
+      const id = "PROJ-" + Utilities.getUuid();
       sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
@@ -960,7 +959,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
@@ -1045,8 +1044,17 @@ function apiFetchKpiStats(staffNames) {
                     const p = String(s).split('/');
                     if (p.length === 3) {
                        let y = parseInt(p[2]);
+                       // If we receive a 2-digit year like '23', we assume '2023'
+                       // But if we receive '2023', we keep it.
+                       // The logic below (if y < 100 y += 2000) handles both if y is parsed correctly.
+                       // But we should be safer.
                        if (y < 100) y += 2000;
                        return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
+                    }
+                    // Handle ISO string yyyy-MM-dd if present
+                    if (String(s).match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        const parts = String(s).split('-');
+                        return new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
                     }
                     return null;
                 };
