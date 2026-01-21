@@ -117,16 +117,6 @@ function apiLogin(username, password) {
     logSystemEvent(userKey, "LOGIN", `Acceso exitoso (${user.role})`);
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
-  
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -380,10 +370,11 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
+  const useLock = !(optOptions && optOptions.skipLock);
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  if (useLock && !lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -567,7 +558,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if(useLock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -679,7 +670,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, {skipLock: true}); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -817,32 +808,32 @@ function apiSaveSite(siteData) {
 }
 
 // 2. Guardar Nuevo Subproyecto (Hijo)
-function apiSaveSubProject(subProjectData) {
+function apiSaveSubProject(subProjectData, optOptions) {
+  const useLock = !(optOptions && optOptions.skipLock);
   const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
-    try {
-      let sheet = findSheetSmart("DB_PROYECTOS");
-      if (!sheet) {
-        sheet = SS.insertSheet("DB_PROYECTOS");
-        sheet.appendRow(["ID_PROYECTO", "ID_SITIO", "NOMBRE_SUBPROYECTO", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
-      }
-      const cleanName = subProjectData.name.toUpperCase().trim();
-      const data = sheet.getDataRange().getValues();
-      let idSitioIdx = 1, nameIdx = 2;
-      const headerRow = findHeaderRow(data);
-      if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
-      for(let i=1; i<data.length; i++) {
-          if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
-              return { success: false, message: "Ya existe ese subproyecto en este sitio."};
-          }
-      }
-      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
-      sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
-      SpreadsheetApp.flush(); 
-      return { success: true, id: id, message: "Subproyecto agregado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
-  }
-  return { success: false, message: "El sistema está ocupado." };
+  if (useLock && !lock.tryLock(5000)) return { success: false, message: "El sistema está ocupado." };
+
+  try {
+    let sheet = findSheetSmart("DB_PROYECTOS");
+    if (!sheet) {
+      sheet = SS.insertSheet("DB_PROYECTOS");
+      sheet.appendRow(["ID_PROYECTO", "ID_SITIO", "NOMBRE_SUBPROYECTO", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
+    }
+    const cleanName = subProjectData.name.toUpperCase().trim();
+    const data = sheet.getDataRange().getValues();
+    let idSitioIdx = 1, nameIdx = 2;
+    const headerRow = findHeaderRow(data);
+    if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
+    for(let i=1; i<data.length; i++) {
+        if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
+            return { success: false, message: "Ya existe ese subproyecto en este sitio."};
+        }
+    }
+    const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
+    sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
+    SpreadsheetApp.flush();
+    return { success: true, id: id, message: "Subproyecto agregado." };
+  } catch (e) { return { success: false, message: e.toString() }; } finally { if(useLock) lock.releaseLock(); }
 }
 
 // 3. Obtener Árbol Completo
@@ -855,7 +846,18 @@ function apiFetchCascadeTree() {
       const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
         const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
-        const colMap = { id: headers.findIndex(h => h.includes("ID")), name: headers.findIndex(h => h.includes("NOMBRE")), client: headers.findIndex(h => h.includes("CLIENTE")), type: headers.findIndex(h => h.includes("TIPO")), status: headers.findIndex(h => h.includes("ESTATUS")), date: headers.findIndex(h => h.includes("FECHA")) };
+        const colMap = {
+            id: headers.findIndex(h => {
+                const s = h.toUpperCase();
+                // Prioridad a ID_SITIO o ID exacto, evitar "VALID", "UUID" si es parcial
+                return (s === 'ID_SITIO' || s === 'ID') || (s.includes('ID') && !s.includes('VALID') && !s.includes('UUID'));
+            }),
+            name: headers.findIndex(h => h.includes("NOMBRE")),
+            client: headers.findIndex(h => h.includes("CLIENTE")),
+            type: headers.findIndex(h => h.includes("TIPO")),
+            status: headers.findIndex(h => h.includes("ESTATUS")),
+            date: headers.findIndex(h => h.includes("FECHA"))
+        };
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
@@ -1004,7 +1006,7 @@ function apiCreateStandardStructure(siteId, user) {
     STANDARD_PROJECT_STRUCTURE.forEach(name => {
         let tipo = "GENERAL";
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
-        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
+        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" }, {skipLock: true});
     });
 }
 
