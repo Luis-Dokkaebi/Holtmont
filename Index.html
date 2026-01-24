@@ -389,7 +389,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                   <tr v-for="(row, i) in projectTasks.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                   <tr v-for="(row, i) in projectTasks.data" :key="row._uiId || i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td>
                       <td v-for="(h, idx) in projectTasks.headers" :key="idx">
                          <div v-if="isCol(h, ['AREA','ALTA'])" style="position:relative; width:100%; height:100%;">
@@ -439,7 +439,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                   <tr v-for="(row, i) in staffTracker.data" :key="i" :class="{'new-row-highlight': row._isNew}">
+                   <tr v-for="(row, i) in staffTracker.data" :key="row._uiId || i" :class="{'new-row-highlight': row._isNew}">
                       <td class="row-num">{{i+1}}</td>
                       <td v-for="(h, idx) in staffTracker.headers" :key="idx">
                          <div v-if="isCol(h, ['AREA','ALTA','ESPECIALIDAD'])" style="position:relative; width:100%; height:100%;">
@@ -541,7 +541,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(row, i) in filteredWeeklyData" :key="i">
+                        <tr v-for="(row, i) in filteredWeeklyData" :key="row._uiId || i">
                             <td class="row-num">{{ i + 1 }}</td>
                             <td v-for="(h, idx) in weeklyPlanData.headers" :key="idx" class="text-center">
                                 <div v-if="h === 'SEMANA'" style="font-weight:bold; color:#0d6efd; background-color:#f8f9fa; font-size:10px;">S{{ row[h] }}</div>
@@ -597,7 +597,7 @@
                    <thead><tr><th class="row-num">#</th><th style="width:100px">Depto</th><th style="min-width:400px">Descripción Actividad</th><th style="width:150px">Responsable</th><th style="width:80px">Fecha</th><th style="width:40px">Reloj</th><th style="width:50px">Cumpl.</th><th style="width:40px">Clip</th><th style="min-width:150px">Comentarios</th><th style="min-width:150px">Previos</th><th style="width:50px"></th></tr></thead>
                    <tbody>
                        <tr class="input-row"><td class="row-num">></td><td><select v-model="ppcData.especialidad" class="excel-input" style="background:#f0fdf4"><option value="" disabled>Sel...</option><option v-for="(d,k) in (config.allDepartments || config.departments)" :key="k" :value="k">{{d.label}}</option></select></td><td><input v-model="ppcData.concepto" class="excel-input" placeholder="Descripción..." style="background:#f0fdf4"></td><td style="background:#f0fdf4; position:relative;"><div class="chip-container" @click="$refs.chipIn.focus()"><span v-for="(u,i) in selectedResponsables" :key="i" class="user-chip">{{u}}<i class="fas fa-times ms-1 text-danger" style="cursor:pointer" @click.stop="selectedResponsables.splice(i,1)"></i></span><input ref="chipIn" v-model="staffSearch" style="border:none;outline:none;min-width:40px;font-size:12px;background:transparent;" placeholder="+"></div><ul class="list-group position-absolute w-100 shadow" style="z-index:100;max-height:150px;overflow:auto;top:100%;left:0" v-if="staffSearch"><li v-for="p in filteredDirectory" :key="p.name" class="list-group-item list-group-item-action small py-1" @click="addResponsable(p.name)">{{p.name}}</li></ul></td><td class="text-center small text-muted">HOY</td><td><input v-model="ppcData.horas" class="excel-input" style="background:#f0fdf4; text-align:center;"></td><td><select v-model="ppcData.cumplimiento" class="excel-input" style="background:#f0fdf4"><option value="NO">NO</option><option value="SI">SI</option></select></td><td class="text-center" style="background:#f0fdf4"><button class="btn-attach" :class="{'has-file': uploadSuccess}" @click="openFileDialog"><i class="fas" :class="uploadSuccess ? 'fa-check' : 'fa-paperclip'"></i></button><input type="file" ref="fileInput" class="file-input-hidden" @change="handleFileSelect"></td><td><input v-model="ppcData.comentarios" class="excel-input" placeholder="..." style="background:#f0fdf4"></td><td><input v-model="ppcData.comentariosPrevios" class="excel-input" placeholder="..." style="background:#f0fdf4"></td><td class="text-center"><button class="btn btn-primary btn-sm py-0" @click="promptExtraData" title="Más Detalles">+</button></td></tr>
-                       <tr v-for="(item, idx) in activityQueue" :key="idx"><td class="row-num">{{ idx + 1 }}</td><td><input :value="item.especialidad" readonly class="excel-input"></td><td><input :value="item.concepto" readonly class="excel-input"></td><td><div style="padding:0 8px; overflow:hidden; white-space:nowrap; font-size:12px">{{ item.responsable }}</div></td><td class="text-center small">{{ item.fechaAlta ? formatDisplayDate(item.fechaAlta) : new Date().toLocaleDateString() }}</td><td><input :value="item.horas" readonly class="excel-input" style="text-align:center;"></td><td><input :value="item.cumplimiento" readonly class="excel-input"></td><td class="text-center"><i class="fas fa-file-pdf text-danger" v-if="item.archivoUrl"></i></td><td><input :value="item.comentarios" readonly class="excel-input"></td><td><input :value="item.comentariosPrevios" readonly class="excel-input"></td><td class="text-center"><i class="fas fa-trash text-danger" style="cursor:pointer" @click="activityQueue.splice(idx,1); syncQueueToBackend();"></i></td></tr>
+                       <tr v-for="(item, idx) in activityQueue" :key="item._uiId || idx"><td class="row-num">{{ idx + 1 }}</td><td><input :value="item.especialidad" readonly class="excel-input"></td><td><input :value="item.concepto" readonly class="excel-input"></td><td><div style="padding:0 8px; overflow:hidden; white-space:nowrap; font-size:12px">{{ item.responsable }}</div></td><td class="text-center small">{{ item.fechaAlta ? formatDisplayDate(item.fechaAlta) : new Date().toLocaleDateString() }}</td><td><input :value="item.horas" readonly class="excel-input" style="text-align:center;"></td><td><input :value="item.cumplimiento" readonly class="excel-input"></td><td class="text-center"><i class="fas fa-file-pdf text-danger" v-if="item.archivoUrl"></i></td><td><input :value="item.comentarios" readonly class="excel-input"></td><td><input :value="item.comentariosPrevios" readonly class="excel-input"></td><td class="text-center"><i class="fas fa-trash text-danger" style="cursor:pointer" @click="activityQueue.splice(idx,1); syncQueueToBackend();"></i></td></tr>
                    </tbody>
                </table>
            </div>
@@ -775,13 +775,16 @@
           projectTasks.value.isLoading = true;
           google.script.run.withSuccessHandler(res => {
               projectTasks.value.isLoading = false;
-              if (res.success) { projectTasks.value.data = res.data; projectTasks.value.headers = res.headers; } 
+              if (res.success) {
+                  projectTasks.value.data = res.data.map(r => ({...r, _uiId: crypto.randomUUID()}));
+                  projectTasks.value.headers = res.headers;
+              }
               else { Swal.fire('Error', res.message, 'error'); }
           }).apiFetchProjectTasks(projectName);
       };
 
       const refreshProjectTasks = () => { if(currentPpcProject.value) loadProjectTasks(currentPpcProject.value.name); };
-      const addNewProjectTask = () => { if (!projectTasks.value.headers.length) return; const row = { _isNew: true }; projectTasks.value.headers.forEach(h => row[h] = ""); row['ESTATUS'] = 'PENDIENTE'; projectTasks.value.data.unshift(row); };
+      const addNewProjectTask = () => { if (!projectTasks.value.headers.length) return; const row = { _isNew: true, _uiId: crypto.randomUUID() }; projectTasks.value.headers.forEach(h => row[h] = ""); row['ESTATUS'] = 'PENDIENTE'; projectTasks.value.data.unshift(row); };
       const saveProjectRow = (row) => {
           if(!currentPpcProject.value) return;
           Swal.showLoading();
@@ -925,14 +928,24 @@
 
       const handleErr = (e) => { loggingIn.value=false; isSubmitting.value=false; Swal.fire('Error',e.message,'error'); };
       const doLogin = () => { if(!loginPass.value || !loginUser.value) return; loggingIn.value=true; google.script.run.withSuccessHandler(res => { loggingIn.value=false; if(res.success){ isLoggedIn.value=true; currentUser.value=res.name; loadConfig(res.role); loadCascadeTree(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiLogin(loginUser.value, loginPass.value); };
-      const loadConfig = (r) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data; } }).apiFetchDrafts(); } }).getSystemConfig(r); };
+      const loadConfig = (r) => { google.script.run.withSuccessHandler(d => { config.value=d; if(r === 'PPC_ADMIN' || r === 'ADMIN_CONTROL' || r === 'ADMIN') { google.script.run.withSuccessHandler(res => { if(res.success && res.data.length > 0) { activityQueue.value = res.data.map(i => ({...i, _uiId: crypto.randomUUID()})); } }).apiFetchDrafts(); } }).getSystemConfig(r); };
       const toggleSidebar = () => { isCompact.value = !isCompact.value; };
       const logout = () => { isLoggedIn.value=false; loginPass.value=''; loginUser.value=''; currentView.value='DASHBOARD'; };
       const goHome = () => { currentView.value='DASHBOARD'; currentDept.value=''; currentModuleId.value=''; };
       const selectDept = (k) => { currentDept.value=k; currentView.value='DEPT'; searchQuery.value=''; currentModuleId.value=''; };
       const goBackToDept = () => currentView.value=staffTracker.value.previousView;
       
-      const loadWeeklyPlan = () => { weeklyPlanData.value.isLoading = true; google.script.run.withSuccessHandler(res => { weeklyPlanData.value.isLoading = false; if(res.success){ weeklyPlanData.value.headers = res.headers; weeklyPlanData.value.data = res.data; selectedWeek.value = ''; } else Swal.fire('Error', res.message, 'error'); }).apiFetchWeeklyPlanData(); };
+      const loadWeeklyPlan = () => {
+          weeklyPlanData.value.isLoading = true;
+          google.script.run.withSuccessHandler(res => {
+              weeklyPlanData.value.isLoading = false;
+              if(res.success){
+                  weeklyPlanData.value.headers = res.headers;
+                  weeklyPlanData.value.data = res.data.map(r => ({...r, _uiId: crypto.randomUUID()}));
+                  selectedWeek.value = '';
+              } else Swal.fire('Error', res.message, 'error');
+          }).apiFetchWeeklyPlanData();
+      };
       const savePPCV3Row = (row) => { const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 }); Toast.fire({ icon: 'info', title: 'Guardando...' }); google.script.run.withSuccessHandler(res => { if(res.success) Toast.fire({ icon: 'success', title: 'Actualizado' }); else Swal.fire('Error', res.message, 'error'); }).apiUpdatePPCV3(JSON.parse(JSON.stringify(row))); };
 
       const loadEcgData = () => {
@@ -975,12 +988,25 @@
       };
       
       const closeIframe = () => currentView.value='DASHBOARD';
-      const openStaffTracker = (p) => { staffTracker.value.name=p.name; staffTracker.value.previousView=currentView.value; currentView.value='STAFF_TRACKER'; staffTracker.value.isLoading=true; google.script.run.withSuccessHandler(res => { staffTracker.value.isLoading=false; if(res.success){ staffTracker.value.data=res.data; staffTracker.value.history=res.history; staffTracker.value.headers=res.headers; } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name); };
+      const openStaffTracker = (p) => {
+          staffTracker.value.name=p.name;
+          staffTracker.value.previousView=currentView.value;
+          currentView.value='STAFF_TRACKER';
+          staffTracker.value.isLoading=true;
+          google.script.run.withSuccessHandler(res => {
+              staffTracker.value.isLoading=false;
+              if(res.success){
+                  staffTracker.value.data=res.data.map(r => ({...r, _uiId: crypto.randomUUID()}));
+                  staffTracker.value.history=res.history;
+                  staffTracker.value.headers=res.headers;
+              } else Swal.fire('Error',res.message,'error');
+          }).withFailureHandler(handleErr).apiFetchStaffTrackerData(p.name);
+      };
       const reloadStaffTracker = () => openStaffTracker({name:staffTracker.value.name});
       
       const addNewRow = () => { 
           if(!staffTracker.value.headers.length) return; 
-          const row={_isNew:true}; 
+          const row={_isNew:true, _uiId: crypto.randomUUID()};
           staffTracker.value.headers.forEach(h => {
               const hUpper = String(h).toUpperCase().trim();
               if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Math.floor(Math.random() * 1000000); } else { row[h] = ""; }
@@ -995,7 +1021,7 @@
       const openFileDialog = () => fileInput.value.click();
       const handleFileSelect = (e) => { const file = e.target.files[0]; if(!file) return; isUploadingFile.value=true; const r = new FileReader(); r.onload=(ev)=>google.script.run.withSuccessHandler(res=>{isUploadingFile.value=false;if(res.success){uploadSuccess.value=true; if(currentView.value === 'PPC_DINAMICO') dynamicPpc.value.archivoUrl=res.fileUrl; else ppcData.value.archivoUrl=res.fileUrl; Swal.fire('Archivo Subido','','success');}}).uploadFileToDrive(ev.target.result,file.type,file.name); r.readAsDataURL(file); };
       const promptExtraData = () => { if(!ppcData.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos básicos','','warning'); extraData.value = { restricciones: '', prioridades: '', riesgos: '', fechaRespuesta: '', clasificacion: '' }; showExtraModal.value = true; };
-      const confirmAddToQueue = () => { const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos; item.clasificacion = extraData.value.clasificacion; if(currentPpcProject.value) { const tag = `[PROY: ${currentPpcProject.value.name}]`; item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + tag; } let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); };
+      const confirmAddToQueue = () => { const item = JSON.parse(JSON.stringify(ppcData.value)); item.responsable = selectedResponsables.value.join(','); item.restricciones = extraData.value.restricciones; item.prioridades = extraData.value.prioridades; item.riesgos = extraData.value.riesgos; item.clasificacion = extraData.value.clasificacion; if(currentPpcProject.value) { const tag = `[PROY: ${currentPpcProject.value.name}]`; item.comentarios = (item.comentarios ? item.comentarios + ' ' : '') + tag; } let fResp = extraData.value.fechaRespuesta; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } item.fechaRespuesta = fResp; item.fechaAlta = new Date().toISOString(); item._uiId = crypto.randomUUID(); activityQueue.value.push(item); ppcData.value.concepto=''; ppcData.value.horas=''; ppcData.value.comentarios=''; ppcData.value.comentariosPrevios=''; selectedResponsables.value=[]; uploadSuccess.value=false; showExtraModal.value = false; syncQueueToBackend(); };
       const syncQueueToBackend = () => { google.script.run.apiSyncDrafts(JSON.parse(JSON.stringify(activityQueue.value))); };
       const saveDynamicPPC = () => { if(!dynamicPpc.value.especialidad || !dynamicPpc.value.concepto || !selectedResponsables.value.length) return Swal.fire('Faltan datos','','warning'); isSubmitting.value = true; let fResp = dynamicPpc.value.fechaFin; if(fResp) { const parts = fResp.split('-'); if(parts.length === 3) fResp = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; } let finalComs = dynamicPpc.value.comentarios || ''; if(currentPpcProject.value) { finalComs = (finalComs ? finalComs + ' ' : '') + `[PROY: ${currentPpcProject.value.name}]`; } const payload = { especialidad: dynamicPpc.value.especialidad, concepto: dynamicPpc.value.concepto, responsable: selectedResponsables.value.join(','), clasificacion: dynamicPpc.value.clasificacion, riesgos: dynamicPpc.value.riesgos, prioridad: dynamicPpc.value.prioridad, fechaRespuesta: fResp, archivoUrl: dynamicPpc.value.archivoUrl, comentarios: finalComs, horas: '', cumplimiento: 'NO' }; google.script.run.withSuccessHandler(res => { isSubmitting.value = false; if(res.success){ Swal.fire('Registro Guardado','Enviado a PPC y Tracker','success'); dynamicPpc.value = { especialidad: '', clasificacion: 'A', concepto: '', riesgos: 'BAJO', prioridad: 'MEDIA', fechaFin: '', comentarios: '', archivoUrl: '' }; selectedResponsables.value = []; uploadSuccess.value = false; } else { Swal.fire('Error', res.message, 'error'); } }).withFailureHandler(handleErr).apiSavePPCData([payload]); };
       const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
