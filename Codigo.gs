@@ -118,15 +118,6 @@ function apiLogin(username, password) {
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
   
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
 
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
@@ -308,6 +299,15 @@ function internalFetchSheetData(sheetName) {
         } else if (typeof val === 'string') {
            if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
            else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+
+           if (!sortDate && val.match(/\d{1,2}\/\d{1,2}\/\d{2}/)) {
+              const parts = val.split('/');
+              if (parts.length === 3) {
+                 let y = parseInt(parts[2], 10);
+                 if (y < 100) y += 2000;
+                 sortDate = new Date(y, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+              }
+           }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -380,10 +380,14 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  let lock = null;
+  if (!optOptions || !optOptions.skipLock) {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -567,7 +571,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -657,7 +661,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -679,7 +683,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true }); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -806,7 +810,7 @@ function apiSaveSite(siteData) {
              return { success: false, message: "Ya existe un sitio con ese nombre."};
          }
       }
-      const id = "SITE-" + new Date().getTime();
+      const id = "SITE-" + Utilities.getUuid();
       sheet.appendRow([ id, cleanName, siteData.client.toUpperCase().trim(), siteData.type || "CLIENTE", "ACTIVO", new Date(), siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       apiCreateStandardStructure(id, siteData.createdBy);
@@ -817,9 +821,18 @@ function apiSaveSite(siteData) {
 }
 
 // 2. Guardar Nuevo Subproyecto (Hijo)
-function apiSaveSubProject(subProjectData) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
+function apiSaveSubProject(subProjectData, optOptions) {
+  let lock = null;
+  let hasLock = false;
+
+  if (optOptions && optOptions.skipLock) {
+    hasLock = true;
+  } else {
+    lock = LockService.getScriptLock();
+    hasLock = lock.tryLock(5000);
+  }
+
+  if (hasLock) {
     try {
       let sheet = findSheetSmart("DB_PROYECTOS");
       if (!sheet) {
@@ -836,11 +849,11 @@ function apiSaveSubProject(subProjectData) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio."};
           }
       }
-      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
+      const id = "PROJ-" + Utilities.getUuid();
       sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
+    } catch (e) { return { success: false, message: e.toString() }; } finally { if (lock) lock.releaseLock(); }
   }
   return { success: false, message: "El sistema está ocupado." };
 }
@@ -855,7 +868,14 @@ function apiFetchCascadeTree() {
       const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
         const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
-        const colMap = { id: headers.findIndex(h => h.includes("ID")), name: headers.findIndex(h => h.includes("NOMBRE")), client: headers.findIndex(h => h.includes("CLIENTE")), type: headers.findIndex(h => h.includes("TIPO")), status: headers.findIndex(h => h.includes("ESTATUS")), date: headers.findIndex(h => h.includes("FECHA")) };
+        const colMap = {
+            id: headers.findIndex(h => h === "ID_SITIO" || h === "ID" || (h.includes("ID") && !h.includes("VALID") && !h.includes("PARTIDA"))),
+            name: headers.findIndex(h => h.includes("NOMBRE")),
+            client: headers.findIndex(h => h.includes("CLIENTE")),
+            type: headers.findIndex(h => h.includes("TIPO")),
+            status: headers.findIndex(h => h.includes("ESTATUS")),
+            date: headers.findIndex(h => h.includes("FECHA"))
+        };
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
@@ -960,7 +980,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
@@ -1004,7 +1024,7 @@ function apiCreateStandardStructure(siteId, user) {
     STANDARD_PROJECT_STRUCTURE.forEach(name => {
         let tipo = "GENERAL";
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
-        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
+        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" }, { skipLock: true });
     });
 }
 
