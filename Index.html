@@ -686,7 +686,11 @@
 </div>
 
 <script>
-  window.onerror = function(msg, url, line) { if(String(msg).toLowerCase().includes("script error")) return; Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + msg }); };
+  window.onerror = function(msg, url, line) {
+      if(String(msg).toLowerCase().includes("script error")) return;
+      if(typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error de Renderizado', text: 'Ocurrió un error visual: ' + msg });
+      else console.error("Error Visual:", msg);
+  };
 
   const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
   const app = createApp({
@@ -983,7 +987,12 @@
           const row={_isNew:true}; 
           staffTracker.value.headers.forEach(h => {
               const hUpper = String(h).toUpperCase().trim();
-              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) { row[h] = "VEN-" + Math.floor(Math.random() * 1000000); } else { row[h] = ""; }
+              if (['FOLIO', 'ID', 'COLUMNA 1', 'FOLIO/ID'].includes(hUpper)) {
+                  let unique = "";
+                  if(typeof crypto !== 'undefined' && crypto.randomUUID) unique = crypto.randomUUID().substring(0,8).toUpperCase();
+                  else unique = Math.floor(Math.random() * 100000000).toString(16).toUpperCase();
+                  row[h] = "VEN-" + unique;
+              } else { row[h] = ""; }
           }); 
           staffTracker.value.data.unshift(row); 
       };
@@ -1001,8 +1010,8 @@
       const submitBatch = () => { isSubmitting.value=true; google.script.run.withSuccessHandler(res => { isSubmitting.value=false; if(res.success){ Swal.fire('Guardado','','success'); google.script.run.withSuccessHandler(r => { if(r.success) ppcExistingData.value = r.data; }).apiFetchPPCData(); } else Swal.fire('Error',res.message,'error'); }).withFailureHandler(handleErr).apiSavePPCData(JSON.parse(JSON.stringify(activityQueue.value))); };
       const clearQueue = () => { Swal.fire({ title: '¿Limpiar tabla?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí' }).then((result) => { if (result.isConfirmed) { activityQueue.value = []; google.script.run.apiClearDrafts(); } }); };
       const toIsoDate = (val) => { if (!val) return ''; const parts = String(val).split('/'); if (parts.length === 3) { let y = parts[2]; if (y.length === 2) y = '20' + y; return `${y}-${parts[1]}-${parts[0]}`; } return ''; };
-      const formatDisplayDate = (val) => { if(!val) return ''; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)) return val; if(String(val).match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return val.replace(/\/(\d{4})$/, (m, y) => "/" + y.slice(-2)); return val; };
-      const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`; };
+      const formatDisplayDate = (val) => { if(!val) return ''; return val; };
+      const updateDateFromPicker = (e, row, h) => { const val = e.target.value; if (!val) { row[h] = ''; return; } const parts = val.split('-'); if (parts.length === 3) row[h] = `${parts[2]}/${parts[1]}/${parts[0]}`; };
       
       // --- LOGICA DE KPIS ---
       const openKpiView = () => { currentView.value = 'KPI_VIEW'; loadKpiData(); };

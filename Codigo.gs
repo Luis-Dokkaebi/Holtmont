@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -303,11 +303,11 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {} // Keep 4 digits
+           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -380,10 +380,13 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
+  const skipLock = optOptions && optOptions.skipLock;
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  if (!skipLock) {
+    if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -502,7 +505,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -567,7 +570,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (!skipLock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -575,14 +578,20 @@ function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.p
 function apiUpdateTask(personName, taskData) {
     try {
         const res = internalBatchUpdateTasks(personName, [taskData]);
+        const distData = JSON.parse(JSON.stringify(taskData));
+        delete distData._rowIndex;
+
+        // 1. Sincronización General a ADMINISTRADOR
+        if (String(personName).toUpperCase() !== "ADMINISTRADOR") {
+             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
+        }
+
+        // 2. Sincronización Especial VENTAS (ANTONIA -> Vendedor)
         if (String(personName).toUpperCase() === "ANTONIA_VENTAS") {
-             const distData = JSON.parse(JSON.stringify(taskData));
-             delete distData._rowIndex; 
              const vendedorKey = Object.keys(taskData).find(k => k.toUpperCase().trim() === "VENDEDOR");
              if (vendedorKey && taskData[vendedorKey] && String(taskData[vendedorKey]).trim().toUpperCase() !== "ANTONIA_VENTAS") {
                  try { internalBatchUpdateTasks(String(taskData[vendedorKey]).trim(), [distData]); } catch(e){}
              }
-             try { internalBatchUpdateTasks("ADMINISTRADOR", [distData]); } catch(e){}
         }
         return res;
     } catch(e) { return {success:false, message:e.toString()}; }
@@ -679,7 +688,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true }); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -762,14 +771,21 @@ function apiFetchWeeklyPlanData() {
       const rowObj = { _rowIndex: headerRowIdx + i + 2 };
       mappedHeaders.forEach((h, colIdx) => {
         let val = r[colIdx];
-        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         rowObj[h] = val;
       });
       const fechaVal = rowObj["FECHA"];
       let semanaNum = "-";
       if (fechaVal) {
         let dateObj = null;
-        if (String(fechaVal).includes("/")) { const parts = String(fechaVal).split("/"); if(parts.length === 3) dateObj = new Date(parts[2], parts[1]-1, parts[0]); } 
+        if (String(fechaVal).includes("/")) {
+           const parts = String(fechaVal).split("/");
+           if(parts.length === 3) {
+             let y = parseInt(parts[2]);
+             if (y < 100) y += 2000;
+             dateObj = new Date(y, parts[1]-1, parts[0]);
+           }
+        }
         else if (fechaVal instanceof Date) { dateObj = fechaVal; } else { dateObj = new Date(fechaVal); }
         if (dateObj && !isNaN(dateObj.getTime())) semanaNum = getWeekNumber(dateObj); 
       }
@@ -817,32 +833,33 @@ function apiSaveSite(siteData) {
 }
 
 // 2. Guardar Nuevo Subproyecto (Hijo)
-function apiSaveSubProject(subProjectData) {
+function apiSaveSubProject(subProjectData, optOptions) {
+  const skipLock = optOptions && optOptions.skipLock;
   const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
-    try {
-      let sheet = findSheetSmart("DB_PROYECTOS");
-      if (!sheet) {
-        sheet = SS.insertSheet("DB_PROYECTOS");
-        sheet.appendRow(["ID_PROYECTO", "ID_SITIO", "NOMBRE_SUBPROYECTO", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
-      }
-      const cleanName = subProjectData.name.toUpperCase().trim();
-      const data = sheet.getDataRange().getValues();
-      let idSitioIdx = 1, nameIdx = 2;
-      const headerRow = findHeaderRow(data);
-      if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
-      for(let i=1; i<data.length; i++) {
-          if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
-              return { success: false, message: "Ya existe ese subproyecto en este sitio."};
-          }
-      }
-      const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
-      sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
-      SpreadsheetApp.flush(); 
-      return { success: true, id: id, message: "Subproyecto agregado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
+  if (!skipLock) {
+    if (!lock.tryLock(5000)) return { success: false, message: "El sistema está ocupado." };
   }
-  return { success: false, message: "El sistema está ocupado." };
+  try {
+    let sheet = findSheetSmart("DB_PROYECTOS");
+    if (!sheet) {
+      sheet = SS.insertSheet("DB_PROYECTOS");
+      sheet.appendRow(["ID_PROYECTO", "ID_SITIO", "NOMBRE_SUBPROYECTO", "TIPO", "ESTATUS", "FECHA_CREACION", "CREADO_POR"]);
+    }
+    const cleanName = subProjectData.name.toUpperCase().trim();
+    const data = sheet.getDataRange().getValues();
+    let idSitioIdx = 1, nameIdx = 2;
+    const headerRow = findHeaderRow(data);
+    if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
+    for(let i=1; i<data.length; i++) {
+        if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
+            return { success: false, message: "Ya existe ese subproyecto en este sitio."};
+        }
+    }
+    const id = "PROJ-" + new Date().getTime() + "-" + Math.floor(Math.random()*1000);
+    sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
+    SpreadsheetApp.flush();
+    return { success: true, id: id, message: "Subproyecto agregado." };
+  } catch (e) { return { success: false, message: e.toString() }; } finally { if (!skipLock) lock.releaseLock(); }
 }
 
 // 3. Obtener Árbol Completo
@@ -1004,7 +1021,7 @@ function apiCreateStandardStructure(siteId, user) {
     STANDARD_PROJECT_STRUCTURE.forEach(name => {
         let tipo = "GENERAL";
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
-        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
+        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" }, { skipLock: true });
     });
 }
 
