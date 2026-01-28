@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -303,11 +303,10 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -454,12 +453,13 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       let tFolio = "";
       for (let pk of possibleKeys) { if (task[pk]) { tFolio = String(task[pk]).toUpperCase(); break; } }
 
+      const searchedForFolio = (tFolio && folioIdx > -1);
       if (tFolio && folioIdx > -1) {
          for (let i = headerRowIndex + 1; i < values.length; i++) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
+      if (rowIndex === -1 && !searchedForFolio && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -502,7 +502,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -646,7 +646,7 @@ function apiSavePPCData(payload) {
       }
       
       const fechaHoy = new Date();
-      const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+      const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
       const rowsForPPC = [];
       const tasksBySheet = {};
       const addTaskToSheet = (sheetName, task) => {
@@ -762,7 +762,7 @@ function apiFetchWeeklyPlanData() {
       const rowObj = { _rowIndex: headerRowIdx + i + 2 };
       mappedHeaders.forEach((h, colIdx) => {
         let val = r[colIdx];
-        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         rowObj[h] = val;
       });
       const fechaVal = rowObj["FECHA"];
@@ -860,7 +860,7 @@ function apiFetchCascadeTree() {
           const row = values[i];
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
              let dateStr = "";
-             if (colMap.date > -1 && row[colMap.date]) { try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yy HH:mm"); } catch(e) {} }
+             if (colMap.date > -1 && row[colMap.date]) { try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yyyy HH:mm"); } catch(e) {} }
              sites.push({ id: String(row[colMap.id]).trim(), name: String(row[colMap.name]).trim(), client: (colMap.client > -1) ? String(row[colMap.client]) : "", type: (colMap.type > -1) ? String(row[colMap.type]) : "CLIENTE", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", createdAt: dateStr, subProjects: [], expanded: false });
           }
         }
@@ -915,7 +915,7 @@ function apiFetchProjectTasks(projectName) {
             let rowObj = { _rowIndex: headerRowIdx + i + 2 };
             headers.forEach((h, k) => {
                 let val = row[k];
-                if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+                if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
                 rowObj[h] = val;
             });
             filteredTasks.push(rowObj);
