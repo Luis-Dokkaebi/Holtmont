@@ -289,7 +289,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -303,11 +303,11 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           // Se mantiene el año completo para evitar ambigüedad (dd/MM/yyyy)
+           if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -380,10 +380,11 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  const useLock = !(optOptions && optOptions.skipLock);
+  const lock = useLock ? LockService.getScriptLock() : null;
+  if (useLock && !lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -502,7 +503,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -567,7 +568,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (useLock && lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -646,7 +647,7 @@ function apiSavePPCData(payload) {
       }
       
       const fechaHoy = new Date();
-      const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+      const fechaStr = Utilities.formatDate(fechaHoy, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
       const rowsForPPC = [];
       const tasksBySheet = {};
       const addTaskToSheet = (sheetName, task) => {
@@ -679,7 +680,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, {skipLock: true}); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -762,7 +763,7 @@ function apiFetchWeeklyPlanData() {
       const rowObj = { _rowIndex: headerRowIdx + i + 2 };
       mappedHeaders.forEach((h, colIdx) => {
         let val = r[colIdx];
-        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+        if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         rowObj[h] = val;
       });
       const fechaVal = rowObj["FECHA"];
@@ -817,10 +818,12 @@ function apiSaveSite(siteData) {
 }
 
 // 2. Guardar Nuevo Subproyecto (Hijo)
-function apiSaveSubProject(subProjectData) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
-    try {
+function apiSaveSubProject(subProjectData, optOptions) {
+  const useLock = !(optOptions && optOptions.skipLock);
+  const lock = useLock ? LockService.getScriptLock() : null;
+  if (useLock && !lock.tryLock(5000)) return { success: false, message: "El sistema está ocupado." };
+
+  try {
       let sheet = findSheetSmart("DB_PROYECTOS");
       if (!sheet) {
         sheet = SS.insertSheet("DB_PROYECTOS");
@@ -840,9 +843,7 @@ function apiSaveSubProject(subProjectData) {
       sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
-  }
-  return { success: false, message: "El sistema está ocupado." };
+  } catch (e) { return { success: false, message: e.toString() }; } finally { if (useLock && lock) lock.releaseLock(); }
 }
 
 // 3. Obtener Árbol Completo
@@ -860,7 +861,7 @@ function apiFetchCascadeTree() {
           const row = values[i];
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
              let dateStr = "";
-             if (colMap.date > -1 && row[colMap.date]) { try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yy HH:mm"); } catch(e) {} }
+             if (colMap.date > -1 && row[colMap.date]) { try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yyyy HH:mm"); } catch(e) {} }
              sites.push({ id: String(row[colMap.id]).trim(), name: String(row[colMap.name]).trim(), client: (colMap.client > -1) ? String(row[colMap.client]) : "", type: (colMap.type > -1) ? String(row[colMap.type]) : "CLIENTE", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", createdAt: dateStr, subProjects: [], expanded: false });
           }
         }
@@ -915,7 +916,7 @@ function apiFetchProjectTasks(projectName) {
             let rowObj = { _rowIndex: headerRowIdx + i + 2 };
             headers.forEach((h, k) => {
                 let val = row[k];
-                if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+                if (val instanceof Date) { val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
                 rowObj[h] = val;
             });
             filteredTasks.push(rowObj);
@@ -1004,7 +1005,7 @@ function apiCreateStandardStructure(siteId, user) {
     STANDARD_PROJECT_STRUCTURE.forEach(name => {
         let tipo = "GENERAL";
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
-        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
+        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" }, {skipLock: true});
     });
 }
 
