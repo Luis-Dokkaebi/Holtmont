@@ -118,16 +118,6 @@ function apiLogin(username, password) {
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
   
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
-
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
 }
@@ -289,7 +279,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -348,11 +338,14 @@ function apiFetchSalesHistory() {
     const grouped = {};
     
     allData.forEach(row => {
-        const vendedorKey = Object.keys(row).find(k => k.toUpperCase().includes("VENDEDOR"));
-        const clienteKey = Object.keys(row).find(k => k.toUpperCase().includes("CLIENTE"));
-        const descKey = Object.keys(row).find(k => k.toUpperCase().includes("CONCEPTO"));
-        const statusKey = Object.keys(row).find(k => k.toUpperCase().includes("ESTATUS"));
-        const dateKey = Object.keys(row).find(k => k.toUpperCase().includes("FECHA"));
+        const keys = Object.keys(row);
+        let vendedorKey = keys.find(k => k.toUpperCase().trim() === "VENDEDOR");
+        if (!vendedorKey) vendedorKey = keys.find(k => k.toUpperCase().includes("VENDEDOR") && !k.toUpperCase().includes("COMENTARIOS"));
+
+        const clienteKey = keys.find(k => k.toUpperCase().includes("CLIENTE"));
+        const descKey = keys.find(k => k.toUpperCase().includes("CONCEPTO"));
+        const statusKey = keys.find(k => k.toUpperCase().includes("ESTATUS"));
+        const dateKey = keys.find(k => k.toUpperCase().includes("FECHA"));
 
         if (vendedorKey && row[vendedorKey]) {
             const name = String(row[vendedorKey]).trim().toUpperCase();
@@ -380,10 +373,16 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  const useLock = !(optOptions && optOptions.skipLock);
+  let lock = null;
+
+  if (useLock) {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -502,7 +501,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if (values[i].some(c => String(c).toUpperCase().trim() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -567,7 +566,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -679,7 +678,8 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      // Se pasa skipLock: true porque ya tenemos el lock principal
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true }); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -710,7 +710,7 @@ function apiFetchPPCData() {
 
     const headers = values[headerIdx].map(h => String(h).toUpperCase().replace(/\n/g, " ").trim());
     const colMap = {
-      id: headers.findIndex(h => h.includes("ID") || h.includes("FOLIO")),
+      id: headers.findIndex(h => h === "ID" || h === "FOLIO" || h.includes("ID_") || h.includes("FOLIO/ID")),
       esp: headers.findIndex(h => h.includes("ESPECIALIDAD")),
       con: headers.findIndex(h => h.includes("DESCRIPCI") || h.includes("CONCEPTO")), 
       resp: headers.findIndex(h => h.includes("RESPONSABLE") || h.includes("INVOLUCRADOS")),
@@ -809,7 +809,8 @@ function apiSaveSite(siteData) {
       const id = "SITE-" + new Date().getTime();
       sheet.appendRow([ id, cleanName, siteData.client.toUpperCase().trim(), siteData.type || "CLIENTE", "ACTIVO", new Date(), siteData.createdBy ? siteData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
-      apiCreateStandardStructure(id, siteData.createdBy);
+      // Pasamos skipLock: true
+      apiCreateStandardStructure(id, siteData.createdBy, { skipLock: true });
       return { success: true, id: id, message: "Sitio creado correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -817,10 +818,16 @@ function apiSaveSite(siteData) {
 }
 
 // 2. Guardar Nuevo Subproyecto (Hijo)
-function apiSaveSubProject(subProjectData) {
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) {
-    try {
+function apiSaveSubProject(subProjectData, optOptions) {
+  const useLock = !(optOptions && optOptions.skipLock);
+  let lock = null;
+
+  if (useLock) {
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) return { success: false, message: "El sistema está ocupado." };
+  }
+
+  try {
       let sheet = findSheetSmart("DB_PROYECTOS");
       if (!sheet) {
         sheet = SS.insertSheet("DB_PROYECTOS");
@@ -840,9 +847,7 @@ function apiSaveSubProject(subProjectData) {
       sheet.appendRow([ id, subProjectData.parentId, cleanName, subProjectData.type || "GENERAL", "ACTIVO", new Date(), subProjectData.createdBy ? subProjectData.createdBy.toUpperCase().trim() : "ANONIMO" ]);
       SpreadsheetApp.flush(); 
       return { success: true, id: id, message: "Subproyecto agregado." };
-    } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
-  }
-  return { success: false, message: "El sistema está ocupado." };
+    } catch (e) { return { success: false, message: e.toString() }; } finally { if (lock) lock.releaseLock(); }
 }
 
 // 3. Obtener Árbol Completo
@@ -1000,11 +1005,11 @@ function cmdActualizar() {
   else { SS.toast("✅ Actualización completada."); }
 }
 
-function apiCreateStandardStructure(siteId, user) {
+function apiCreateStandardStructure(siteId, user, optOptions) {
     STANDARD_PROJECT_STRUCTURE.forEach(name => {
         let tipo = "GENERAL";
         if (name.includes("PPC")) tipo = "PPC_MASTER"; 
-        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" });
+        apiSaveSubProject({ parentId: siteId, name: name, type: tipo, createdBy: user || "SISTEMA" }, optOptions);
     });
 }
 
