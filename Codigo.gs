@@ -306,8 +306,18 @@ function internalFetchSheetData(sheetName) {
               val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
+             if (!sortDate) {
+                const parts = val.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                if (parts && parts.length === 4) sortDate = new Date(parseInt(parts[3]), parseInt(parts[2])-1, parseInt(parts[1]));
+             }
+             val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
+           }
+           else if (val.match(/\d{4}-\d{2}-\d{2}/)) {
+             let d = new Date(val);
+             if (!sortDate && !isNaN(d.getTime())) sortDate = d;
+             val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+           }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -346,14 +356,21 @@ function apiFetchSalesHistory() {
     if (!dataRes.success) return dataRes;
     const allData = [...dataRes.data, ...dataRes.history];
     const grouped = {};
+    const headers = dataRes.headers || [];
     
-    allData.forEach(row => {
-        const vendedorKey = Object.keys(row).find(k => k.toUpperCase().includes("VENDEDOR"));
-        const clienteKey = Object.keys(row).find(k => k.toUpperCase().includes("CLIENTE"));
-        const descKey = Object.keys(row).find(k => k.toUpperCase().includes("CONCEPTO"));
-        const statusKey = Object.keys(row).find(k => k.toUpperCase().includes("ESTATUS"));
-        const dateKey = Object.keys(row).find(k => k.toUpperCase().includes("FECHA"));
+    const findHeader = (partial) => {
+       const exact = headers.find(h => h.toUpperCase() === partial);
+       if(exact) return exact;
+       return headers.find(h => h.toUpperCase().includes(partial));
+    };
 
+    const vendedorKey = findHeader("VENDEDOR");
+    const clienteKey = findHeader("CLIENTE");
+    const descKey = headers.find(h => h.toUpperCase().includes("CONCEPTO") || h.toUpperCase().includes("DESCRIP"));
+    const statusKey = headers.find(h => h.toUpperCase().includes("ESTATUS"));
+    const dateKey = headers.find(h => h.toUpperCase().includes("FECHA"));
+
+    allData.forEach(row => {
         if (vendedorKey && row[vendedorKey]) {
             const name = String(row[vendedorKey]).trim().toUpperCase();
             if (!grouped[name]) grouped[name] = [];
@@ -380,10 +397,12 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  const useLock = !(optOptions && optOptions.skipLock);
+  const lock = useLock ? LockService.getScriptLock() : null;
+
+  if (useLock && !lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -567,7 +586,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally { if (useLock && lock) lock.releaseLock(); }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -679,7 +698,7 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true }); }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -718,8 +737,8 @@ function apiFetchPPCData() {
       reloj: headers.findIndex(h => h.includes("RELOJ")),
       cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
       arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
-      com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
-      prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
+      com: headers.findIndex(h => (h.includes("COMENTARIOS") && h.includes("CURSO")) || h === "COMENTARIOS" || h === "OBSERVACIONES"),
+      prev: headers.findIndex(h => (h.includes("COMENTARIOS") && h.includes("PREVIA")) || h === "PREVIOS" || h === "COMENTARIOS PREVIOS")
     };
     let dataRows = values.slice(headerIdx + 1);
     if(dataRows.length > 300) dataRows = dataRows.slice(dataRows.length - 300);
