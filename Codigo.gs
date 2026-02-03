@@ -118,16 +118,6 @@ function apiLogin(username, password) {
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
   
-  // 2. Acceso Universal para trabajadores (Backdoor seguro por nombre de hoja)
-  // Esto permite que cualquiera con una hoja a su nombre entre con pass '123' o similar si lo configuras
-  if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
-      const sheet = findSheetSmart(username);
-      if(sheet) {
-          logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
-          return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
-      }
-  }
-
   logSystemEvent(userKey || "ANONIMO", "LOGIN_FAIL", "Credenciales incorrectas");
   return { success: false, message: 'Usuario o contraseña incorrectos.' };
 }
@@ -289,7 +279,7 @@ function internalFetchSheetData(sheetName) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       // DETECTOR DE SECCIÓN DE HISTORIAL (CRÍTICO)
-      if (row.join("|").toUpperCase().includes("TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
+      if (row.some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) { isReadingHistory = true; continue; }
       if (row.every(c => c === "") || String(row[validIndices[0]]).toUpperCase() === String(cleanHeaders[0]).toUpperCase()) continue;
 
       let rowObj = {};
@@ -306,8 +296,12 @@ function internalFetchSheetData(sheetName) {
               val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           const hUp = headerName.toUpperCase();
+           const isDateCol = hUp.includes("FECHA") || hUp.includes("ALTA") || hUp.includes("RESPUESTA") || hUp.includes("INICIO") || hUp.includes("FIN");
+           if (isDateCol) {
+               if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
+               else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -502,7 +496,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     if (avanceIdx > -1) {
         let separatorIndex = -1;
         for(let i=0; i<values.length; i++) {
-            if(String(values[i][0]).toUpperCase().includes("TAREAS REALIZADAS") || String(values[i].join("|")).toUpperCase().includes("TAREAS REALIZADAS")) { 
+            if(values[i].some(c => String(c).trim().toUpperCase() === "TAREAS REALIZADAS")) {
                 separatorIndex = i; break;
             }
         }
@@ -718,8 +712,8 @@ function apiFetchPPCData() {
       reloj: headers.findIndex(h => h.includes("RELOJ")),
       cump: headers.findIndex(h => h.includes("CUMPLIMIENTO")),
       arch: headers.findIndex(h => h.includes("ARCHIVO") || h.includes("CLIP")),
-      com: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("CURSO")),
-      prev: headers.findIndex(h => h.includes("COMENTARIOS") && h.includes("PREVIA"))
+      com: headers.findIndex(h => (h.includes("COMENTARIOS") || h.includes("OBSERVACIONES")) && !h.includes("PREVI")),
+      prev: headers.findIndex(h => h.includes("PREVI"))
     };
     let dataRows = values.slice(headerIdx + 1);
     if(dataRows.length > 300) dataRows = dataRows.slice(dataRows.length - 300);
