@@ -303,11 +303,10 @@ function internalFetchSheetData(sheetName) {
            if (val.getFullYear() < 1900) val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "HH:mm");
            else {
               if (!sortDate) sortDate = val; 
-              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yy");
+              val = Utilities.formatDate(val, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy");
            }
         } else if (typeof val === 'string') {
-           if(val.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) val = val.replace(/\/(\d{4})$/, (match, y) => "/" + y.slice(-2));
-           else if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yy"); }
+           if (val.match(/\d{4}-\d{2}-\d{2}/)) { let d = new Date(val); val = Utilities.formatDate(d, SS.getSpreadsheetTimeZone(), "dd/MM/yyyy"); }
         }
         if (val !== "" && val !== undefined) hasData = true;
         rowObj[headerName] = val;
@@ -347,30 +346,35 @@ function apiFetchSalesHistory() {
     const allData = [...dataRes.data, ...dataRes.history];
     const grouped = {};
     
-    allData.forEach(row => {
-        const vendedorKey = Object.keys(row).find(k => k.toUpperCase().includes("VENDEDOR"));
-        const clienteKey = Object.keys(row).find(k => k.toUpperCase().includes("CLIENTE"));
-        const descKey = Object.keys(row).find(k => k.toUpperCase().includes("CONCEPTO"));
-        const statusKey = Object.keys(row).find(k => k.toUpperCase().includes("ESTATUS"));
-        const dateKey = Object.keys(row).find(k => k.toUpperCase().includes("FECHA"));
+    if (allData.length > 0) {
+        const keys = Object.keys(allData[0]);
+        const vendedorKey = keys.find(k => k.toUpperCase().includes("VENDEDOR"));
+        const clienteKey = keys.find(k => k.toUpperCase().includes("CLIENTE"));
+        const descKey = keys.find(k => k.toUpperCase().includes("CONCEPTO"));
+        const statusKey = keys.find(k => k.toUpperCase().includes("ESTATUS"));
+        const dateKey = keys.find(k => k.toUpperCase().includes("FECHA"));
 
-        if (vendedorKey && row[vendedorKey]) {
-            const name = String(row[vendedorKey]).trim().toUpperCase();
-            if (!grouped[name]) grouped[name] = [];
-            
-            let pulse = 0;
-            const status = String(row[statusKey] || "").toUpperCase();
+        if (vendedorKey) {
+            allData.forEach(row => {
+                if (row[vendedorKey]) {
+                    const name = String(row[vendedorKey]).trim().toUpperCase();
+                    if (!grouped[name]) grouped[name] = [];
+
+                    let pulse = 0;
+                    const status = String(row[statusKey] || "").toUpperCase();
             if (status.includes("VENDIDA") || status.includes("APROBADA") || status.includes("GANADA")) pulse = 10;
             else if (status.includes("COTIZADA") || status.includes("ENVIADA")) pulse = 5;
             else if (status.includes("PERDIDA") || status.includes("CANCELADA")) pulse = -5;
             else pulse = 1;
 
-            grouped[name].push({
-                client: row[clienteKey] || "S/C", desc: row[descKey] || "", status: status, date: row[dateKey] || "",
-                pulse: pulse, displayDate: row[dateKey] ? String(row[dateKey]).substring(0,5) : ""
+                    grouped[name].push({
+                        client: row[clienteKey] || "S/C", desc: row[descKey] || "", status: status, date: row[dateKey] || "",
+                        pulse: pulse, displayDate: row[dateKey] ? String(row[dateKey]).substring(0,5) : ""
+                    });
+                }
             });
         }
-    });
+    }
     return { success: true, data: grouped };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
@@ -380,10 +384,15 @@ function apiFetchSalesHistory() {
  * MOTOR DE ESCRITURA (WRITE ENGINE) - BATCH MASIVO
  * ======================================================================
  */
-function internalBatchUpdateTasks(sheetName, tasksArray) {
+function internalBatchUpdateTasks(sheetName, tasksArray, optOptions) {
   if (!tasksArray || tasksArray.length === 0) return { success: true };
+
+  const useLock = !(optOptions && optOptions.skipLock);
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+
+  if (useLock) {
+    if (!lock.tryLock(10000)) return { success: false, message: "Hoja ocupada, intenta de nuevo."};
+  }
   
   try {
     const sheet = findSheetSmart(sheetName);
@@ -443,6 +452,16 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
     };
     
     const folioIdx = getColIdx('FOLIO');
+
+    // OPTIMIZATION: Index rows by Folio/ID
+    const rowMap = new Map();
+    if (folioIdx > -1) {
+        for (let i = headerRowIndex + 1; i < values.length; i++) {
+            const cellVal = String(values[i][folioIdx]).toUpperCase().trim();
+            if (cellVal && !rowMap.has(cellVal)) rowMap.set(cellVal, i);
+        }
+    }
+
     let rowsToAppend = [];
     let singleRowIndex = -1;
     let modified = false;
@@ -455,8 +474,8 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
       for (let pk of possibleKeys) { if (task[pk]) { tFolio = String(task[pk]).toUpperCase(); break; } }
 
       if (tFolio && folioIdx > -1) {
-         for (let i = headerRowIndex + 1; i < values.length; i++) {
-           if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
+         if (rowMap.has(tFolio.trim())) {
+             rowIndex = rowMap.get(tFolio.trim());
          }
       }
       if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
@@ -567,7 +586,9 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
   } catch (e) {
     console.error(e);
     return { success: false, message: e.toString() };
-  } finally { lock.releaseLock(); }
+  } finally {
+    if (useLock) lock.releaseLock();
+  }
 }
 
 function apiUpdatePPCV3(taskData) { return internalBatchUpdateTasks(APP_CONFIG.ppcSheetName, [taskData]); }
@@ -679,7 +700,9 @@ function apiSavePPCData(payload) {
           const lastRow = sheetPPC.getLastRow();
           sheetPPC.getRange(lastRow + 1, 1, rowsForPPC.length, rowsForPPC[0].length).setValues(rowsForPPC);
       }
-      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) { internalBatchUpdateTasks(targetSheet, tasks); }
+      for (const [targetSheet, tasks] of Object.entries(tasksBySheet)) {
+        internalBatchUpdateTasks(targetSheet, tasks, { skipLock: true });
+      }
       return { success: true, message: "Procesado y Distribuido Correctamente." };
     } catch (e) { return { success: false, message: e.toString() }; } finally { lock.releaseLock(); }
   }
@@ -849,6 +872,7 @@ function apiSaveSubProject(subProjectData) {
 function apiFetchCascadeTree() {
   try {
     const sites = [];
+    const sitesMap = new Map(); // Optimization: O(1) lookup
     const sheetSites = findSheetSmart("DB_SITIOS");
     if (sheetSites) {
       const values = sheetSites.getDataRange().getValues();
@@ -861,7 +885,9 @@ function apiFetchCascadeTree() {
           if (colMap.id > -1 && colMap.name > -1 && row[colMap.id]) {
              let dateStr = "";
              if (colMap.date > -1 && row[colMap.date]) { try { dateStr = Utilities.formatDate(new Date(row[colMap.date]), SS.getSpreadsheetTimeZone(), "dd/MM/yy HH:mm"); } catch(e) {} }
-             sites.push({ id: String(row[colMap.id]).trim(), name: String(row[colMap.name]).trim(), client: (colMap.client > -1) ? String(row[colMap.client]) : "", type: (colMap.type > -1) ? String(row[colMap.type]) : "CLIENTE", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", createdAt: dateStr, subProjects: [], expanded: false });
+             const siteObj = { id: String(row[colMap.id]).trim(), name: String(row[colMap.name]).trim(), client: (colMap.client > -1) ? String(row[colMap.client]) : "", type: (colMap.type > -1) ? String(row[colMap.type]) : "CLIENTE", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", createdAt: dateStr, subProjects: [], expanded: false };
+             sites.push(siteObj);
+             sitesMap.set(siteObj.id, siteObj);
           }
         }
       }
@@ -877,7 +903,7 @@ function apiFetchCascadeTree() {
           const row = values[i];
           if (colMap.parentId > -1 && colMap.name > -1 && row[colMap.parentId]) {
              const parentId = String(row[colMap.parentId]).trim();
-             const parent = sites.find(s => String(s.id).trim() === parentId);
+             const parent = sitesMap.get(parentId);
              if (parent) {
                const pName = String(row[colMap.name]).trim().toUpperCase();
                let icon = "fa-clipboard-list";
