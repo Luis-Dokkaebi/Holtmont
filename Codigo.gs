@@ -40,14 +40,14 @@ const STANDARD_PROJECT_STRUCTURE = [
 
 // --- BASE DE DATOS DE USUARIOS (ROLES Y ACCESOS) ---
 const USER_DB = {
-  "LUIS_CARLOS":      { pass: "admin2025", role: "ADMIN", label: "Administrador" },
-  "JESUS_CANTU":      { pass: "ppc2025",   role: "PPC_ADMIN", label: "PPC Manager" },
-  "ANTONIA_VENTAS":   { pass: "tonita2025", role: "TONITA", label: "Ventas" },
-  "JAIME_OLIVO":      { pass: "admin2025", role: "ADMIN_CONTROL", label: "Jaime Olivo" },
-  "ANGEL_SALINAS":    { pass: "angel2025", role: "ANGEL_USER", label: "Angel Salinas" },
-  "TERESA_GARZA":     { pass: "tere2025",  role: "TERESA_USER", label: "Teresa Garza" },
-  "EDUARDO_TERAN":    { pass: "lalo2025",  role: "EDUARDO_USER", label: "Eduardo Teran" },
-  "RAMIRO_RODRIGUEZ": { pass: "ramiro2025", role: "RAMIRO_USER", label: "Ramiro Rodriguez" }
+  "LUIS_CARLOS":      { pass: "0E89F223E226AE63268CF39152AB75722E811B89D29EFB22A852F1667BD22AE0", role: "ADMIN", label: "Administrador" },
+  "JESUS_CANTU":      { pass: "7F73B41CD0DE2C4C040505439BC5EA28C62F06324FC5005B76981256D1B0BE15",   role: "PPC_ADMIN", label: "PPC Manager" },
+  "ANTONIA_VENTAS":   { pass: "C743A722CAFF3F93C1DB6AC4F1B8654FBD029560A991FF452F56F7A669672CC3", role: "TONITA", label: "Ventas" },
+  "JAIME_OLIVO":      { pass: "0E89F223E226AE63268CF39152AB75722E811B89D29EFB22A852F1667BD22AE0", role: "ADMIN_CONTROL", label: "Jaime Olivo" },
+  "ANGEL_SALINAS":    { pass: "9498D2EECEDC1A481002FBCD560CB2662026AEFA5986F15125ADB50F0BB8C0DD", role: "ANGEL_USER", label: "Angel Salinas" },
+  "TERESA_GARZA":     { pass: "4D2AC0FCE70AB4C832AB94A412D8D4F7F4CD0D0DCBEB858D33A77661A1259C95",  role: "TERESA_USER", label: "Teresa Garza" },
+  "EDUARDO_TERAN":    { pass: "F48729692B4B01F6B2AD8DAF47D49A95C46D922EBF4213EB8EF6669C02F0EDFD",  role: "EDUARDO_USER", label: "Eduardo Teran" },
+  "RAMIRO_RODRIGUEZ": { pass: "1F71146C0CC277296B0F92C5C215569B58143829224F1A01E1370F959C911905", role: "RAMIRO_USER", label: "Ramiro Rodriguez" }
 };
 
 /* =======================================
@@ -109,11 +109,20 @@ function logSystemEvent(user, action, details) {
 /* =======================================
    SISTEMA DE LOGIN Y CONFIGURACIÓN
    ======================================= */
+function hashPassword(password) {
+  const rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password);
+  return rawHash.map(function(byte) {
+      // Convert signed byte to unsigned and then to hex
+      var v = (byte < 0) ? byte + 256 : byte;
+      return ("0" + v.toString(16)).slice(-2);
+  }).join("").toUpperCase();
+}
+
 function apiLogin(username, password) {
   const userKey = String(username).trim().toUpperCase();
   // 1. Verificación en DB Constante
   const user = USER_DB[userKey];
-  if (user && user.pass === password) {
+  if (user && user.pass === hashPassword(password)) {
     logSystemEvent(userKey, "LOGIN", `Acceso exitoso (${user.role})`);
     return { success: true, role: user.role, name: user.label, username: userKey };
   }
@@ -458,8 +467,9 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
          for (let i = headerRowIndex + 1; i < values.length; i++) {
            if (String(values[i][folioIdx]).toUpperCase().trim() === tFolio.trim()) { rowIndex = i; break; }
          }
+      } else {
+         if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
       }
-      if (rowIndex === -1 && task._rowIndex) rowIndex = parseInt(task._rowIndex) - 1;
 
       if (rowIndex > -1 && rowIndex < values.length) {
          // ACTUALIZAR
@@ -657,7 +667,7 @@ function apiSavePPCData(payload) {
       };
 
       items.forEach(item => {
-          const id = "PPC-" + Math.floor(Math.random() * 100000);
+          const id = "PPC-" + Utilities.getUuid();
           rowsForPPC.push([
              id, item.especialidad, item.concepto, item.responsable, fechaHoy, 
              item.horas, item.cumplimiento, item.archivoUrl, item.comentarios, item.comentariosPrevios || ""
@@ -960,7 +970,7 @@ function cmdRealizarAlta() {
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
   if (!taskObj["CONCEPTO"] && !taskObj["DESCRIPCION"]) { ui.alert("❌ Falta el CONCEPTO o DESCRIPCIÓN."); return; }
   if (!taskObj["FOLIO"] && !taskObj["ID"]) {
-    taskObj["FOLIO"] = "PPC-" + Math.floor(Math.random() * 100000);
+    taskObj["FOLIO"] = "PPC-" + Utilities.getUuid();
     const folioCol = headers.indexOf("FOLIO") > -1 ? headers.indexOf("FOLIO") : headers.indexOf("ID");
     if (folioCol > -1) { sheet.getRange(row, folioCol + 1).setValue(taskObj["FOLIO"]); }
   }
