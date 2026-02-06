@@ -78,10 +78,14 @@ function findSheetSmart(name) {
   return null;
 }
 
+function normalizeHeader(h) {
+  return String(h).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+}
+
 // DETECTOR DE CABECERAS MEJORADO
 function findHeaderRow(values) {
   for (let i = 0; i < Math.min(100, values.length); i++) {
-    const rowStr = values[i].map(c => String(c).toUpperCase().replace(/\n/g, " ").replace(/\s+/g, " ").trim()).join("|");
+    const rowStr = values[i].map(c => normalizeHeader(c)).join("|");
     // Patrones de DB
     if (rowStr.includes("ID_SITIO") || rowStr.includes("ID_PROYECTO")) return i;
     // Patrón Estándar
@@ -123,6 +127,13 @@ function apiLogin(username, password) {
   if (password === '123') { // Contraseña genérica para staff si no están en USER_DB
       const sheet = findSheetSmart(username);
       if(sheet) {
+          const sheetName = sheet.getName();
+          const forbidden = ["ADMINISTRADOR", "DB_SITIOS", "DB_PROYECTOS", APP_CONFIG.logSheetName, APP_CONFIG.ppcSheetName, APP_CONFIG.draftSheetName, APP_CONFIG.salesSheetName];
+          if (forbidden.some(f => String(f).toUpperCase().trim() === String(sheetName).toUpperCase().trim())) {
+             logSystemEvent(userKey, "LOGIN_FAIL_SYSTEM", "Intento acceso hoja sistema");
+             return { success: false, message: 'Acceso restringido.' };
+          }
+
           logSystemEvent(userKey, "LOGIN_SHEET", "Acceso por Hoja");
           return { success: true, role: 'USER_GENERIC', name: sheet.getName(), username: sheet.getName() };
       }
@@ -274,7 +285,7 @@ function internalFetchSheetData(sheetName) {
     const headerRowIndex = findHeaderRow(values);
     if (headerRowIndex === -1) return { success: true, data: [], headers: [], message: "Sin formato válido" };
     
-    const rawHeaders = values[headerRowIndex].map(h => String(h).trim());
+    const rawHeaders = values[headerRowIndex].map(h => normalizeHeader(h));
     const validIndices = [];
     const cleanHeaders = [];
     rawHeaders.forEach((h, index) => {
@@ -405,7 +416,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
         SpreadsheetApp.flush(); 
     }
 
-    const headers = values[headerRowIndex].map(h => String(h).toUpperCase().trim());
+    const headers = values[headerRowIndex].map(h => normalizeHeader(h));
     const maxCols = values.reduce((max, r) => Math.max(max, r.length), 0);
     const totalColumns = Math.max(maxCols, headers.length);
     const colMap = {};
@@ -413,7 +424,7 @@ function internalBatchUpdateTasks(sheetName, tasksArray) {
 
     // DICCIONARIO DE ALIAS ROBUSTO (PARA EVITAR ERRORES DE USUARIO)
     const getColIdx = (key) => {
-      const k = String(key).toUpperCase().trim();
+      const k = normalizeHeader(key);
       if (colMap[k] !== undefined) return colMap[k];
       const aliases = {
         'FOLIO': ['FOLIO', 'ID', 'COLUMNA 1', 'COLUMN 1', 'COLUMNA1', 'FOLIO/ID'],
@@ -708,7 +719,7 @@ function apiFetchPPCData() {
     const headerIdx = findHeaderRow(values);
     if (headerIdx === -1) return {success:true, data:[]};
 
-    const headers = values[headerIdx].map(h => String(h).toUpperCase().replace(/\n/g, " ").trim());
+    const headers = values[headerIdx].map(h => normalizeHeader(h));
     const colMap = {
       id: headers.findIndex(h => h.includes("ID") || h.includes("FOLIO")),
       esp: headers.findIndex(h => h.includes("ESPECIALIDAD")),
@@ -744,9 +755,9 @@ function apiFetchWeeklyPlanData() {
     if (data.length < 2) return { success: true, headers: [], data: [] };
     const headerRowIdx = findHeaderRow(data);
     if (headerRowIdx === -1) return { success: false, message: "Cabeceras no encontradas en PPCV3." };
-    const originalHeaders = data[headerRowIdx].map(h => String(h).trim());
+    const originalHeaders = data[headerRowIdx].map(h => normalizeHeader(h));
     const mappedHeaders = originalHeaders.map(h => {
-        const up = h.toUpperCase();
+        const up = h; // Already normalized/uppercased
         if (up.includes("ESPECIALIDAD") || up.includes("AREA") || up.includes("DEPARTAMENTO")) return "ESPECIALIDAD";
         if (up.includes("DESCRIPCI") || up.includes("CONCEPTO")) return "CONCEPTO"; 
         if (up.includes("INVOLUCRADOS") || up.includes("RESPONSABLE")) return "RESPONSABLE";
@@ -800,8 +811,15 @@ function apiSaveSite(siteData) {
       }
       const data = sheet.getDataRange().getValues();
       const cleanName = siteData.name.toUpperCase().trim();
-      const nameColIdx = data.length > 0 ? data[0].indexOf("NOMBRE") : 1;
-      for(let i=1; i<data.length; i++) {
+      let nameColIdx = 1;
+      const headerRow = findHeaderRow(data);
+      if (headerRow > -1) {
+          const headers = data[headerRow].map(h => normalizeHeader(h));
+          const idx = headers.indexOf("NOMBRE");
+          if (idx > -1) nameColIdx = idx;
+      }
+      const startRow = headerRow > -1 ? headerRow + 1 : 1;
+      for(let i=startRow; i<data.length; i++) {
          if (data[i][nameColIdx] && String(data[i][nameColIdx]).toUpperCase().trim() === cleanName) {
              return { success: false, message: "Ya existe un sitio con ese nombre."};
          }
@@ -830,8 +848,9 @@ function apiSaveSubProject(subProjectData) {
       const data = sheet.getDataRange().getValues();
       let idSitioIdx = 1, nameIdx = 2;
       const headerRow = findHeaderRow(data);
-      if (headerRow > -1) { const headers = data[headerRow].map(h=>String(h).toUpperCase()); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
-      for(let i=1; i<data.length; i++) {
+      if (headerRow > -1) { const headers = data[headerRow].map(h=>normalizeHeader(h)); idSitioIdx = headers.indexOf("ID_SITIO"); nameIdx = headers.indexOf("NOMBRE_SUBPROYECTO"); }
+      const startRow = headerRow > -1 ? headerRow + 1 : 1;
+      for(let i=startRow; i<data.length; i++) {
           if (data[i][idSitioIdx] == subProjectData.parentId && String(data[i][nameIdx]).toUpperCase().trim() === cleanName) {
               return { success: false, message: "Ya existe ese subproyecto en este sitio."};
           }
@@ -854,7 +873,7 @@ function apiFetchCascadeTree() {
       const values = sheetSites.getDataRange().getValues();
       const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
-        const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
+        const headers = values[headerRowIdx].map(h => normalizeHeader(h));
         const colMap = { id: headers.findIndex(h => h.includes("ID")), name: headers.findIndex(h => h.includes("NOMBRE")), client: headers.findIndex(h => h.includes("CLIENTE")), type: headers.findIndex(h => h.includes("TIPO")), status: headers.findIndex(h => h.includes("ESTATUS")), date: headers.findIndex(h => h.includes("FECHA")) };
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
@@ -871,8 +890,8 @@ function apiFetchCascadeTree() {
       const values = sheetProjs.getDataRange().getValues();
       const headerRowIdx = findHeaderRow(values);
       if (headerRowIdx !== -1 && values.length > headerRowIdx + 1) {
-        const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
-        const colMap = { parentId: headers.findIndex(h => h.includes("SITIO") || h.includes("PADRE")), name: headers.findIndex(h => h.includes("NOMBRE") || h.includes("SUBPROYECTO")), type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")), status: headers.findIndex(h => h.includes("ESTATUS")) };
+        const headers = values[headerRowIdx].map(h => normalizeHeader(h));
+        const colMap = { id: headers.findIndex(h => h === "ID_PROYECTO" || h === "ID"), parentId: headers.findIndex(h => h.includes("SITIO") || h.includes("PADRE")), name: headers.findIndex(h => h.includes("NOMBRE") || h.includes("SUBPROYECTO")), type: headers.findIndex(h => h.includes("TIPO") || h.includes("ESPECIALIDAD")), status: headers.findIndex(h => h.includes("ESTATUS")) };
         for (let i = headerRowIdx + 1; i < values.length; i++) {
           const row = values[i];
           if (colMap.parentId > -1 && colMap.name > -1 && row[colMap.parentId]) {
@@ -882,7 +901,7 @@ function apiFetchCascadeTree() {
                const pName = String(row[colMap.name]).trim().toUpperCase();
                let icon = "fa-clipboard-list";
                if (pName.includes("PPC")) icon = "fa-tasks";
-               parent.subProjects.push({ id: row[0], name: String(row[colMap.name]).trim(), type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", icon: icon });
+               parent.subProjects.push({ id: (colMap.id > -1 ? row[colMap.id] : row[0]), name: String(row[colMap.name]).trim(), type: (colMap.type > -1) ? String(row[colMap.type]) : "GENERAL", status: (colMap.status > -1) ? String(row[colMap.status]) : "ACTIVO", icon: icon });
              }
           }
         }
@@ -900,7 +919,7 @@ function apiFetchProjectTasks(projectName) {
     if (values.length < 2) return { success: true, data: [], headers: [] };
     const headerRowIdx = findHeaderRow(values);
     if (headerRowIdx === -1) return { success: false, message: "Sin cabeceras válidas" };
-    const headers = values[headerRowIdx].map(h => String(h).toUpperCase().trim());
+    const headers = values[headerRowIdx].map(h => normalizeHeader(h));
     const projectTag = `[PROY: ${String(projectName).toUpperCase().trim()}]`;
     let colIdx = { concepto: headers.indexOf("CONCEPTO"), comentarios: headers.indexOf("COMENTARIOS") };
     if (colIdx.concepto === -1) colIdx.concepto = headers.findIndex(h => h.includes("CONCEPTO") || h.includes("DESCRIPCI"));
@@ -954,7 +973,7 @@ function cmdRealizarAlta() {
   const values = dataRange.getValues();
   const headerIdx = findHeaderRow(values);
   if (headerIdx === -1 || row <= headerIdx + 1) { ui.alert("⚠️ Por favor selecciona una celda dentro de una fila de datos válida."); return; }
-  const headers = values[headerIdx].map(h => String(h).toUpperCase().trim());
+  const headers = values[headerIdx].map(h => normalizeHeader(h));
   const rowData = values[row - 1];
   const taskObj = {};
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
@@ -983,7 +1002,7 @@ function cmdActualizar() {
   const values = dataRange.getValues();
   const headerIdx = findHeaderRow(values);
   if (headerIdx === -1 || row <= headerIdx + 1) { ui.alert("⚠️ Selecciona una fila de datos válida."); return; }
-  const headers = values[headerIdx].map(h => String(h).toUpperCase().trim());
+  const headers = values[headerIdx].map(h => normalizeHeader(h));
   const rowData = values[row - 1];
   const taskObj = { _rowIndex: row }; 
   headers.forEach((h, i) => { if (h) taskObj[h] = rowData[i]; });
